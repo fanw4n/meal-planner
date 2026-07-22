@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f2ea" />
+    <meta
+      name="description"
+      content="Личный планировщик рецептов, меню на неделю и списка покупок"
+    />
+    <title>Меню на неделю</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">🍽</div>
+          <div>
+            <p class="eyebrow">Личный планировщик</p>
+            <h1>Меню на неделю</h1>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span class="sync-badge" id="storageStatus">Сохранено в браузере</span>
+          <button class="button button-ghost" id="exportData" type="button">Экспорт данных</button>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="Разделы приложения">
+        <button class="tab-button is-active" data-tab="recipes" type="button">
+          <span>Рецепты</span><span class="tab-count" id="recipeCount">0</span>
+        </button>
+        <button class="tab-button" data-tab="week" type="button">Недельный рацион</button>
+        <button class="tab-button" data-tab="ingredients" type="button">Ингредиенты</button>
+        <button class="tab-button" data-tab="shopping" type="button">
+          <span>Покупки</span><span class="tab-count" id="shoppingCount">0</span>
+        </button>
+      </nav>
+
+      <main>
+        <section class="tab-panel is-visible" id="tab-recipes" data-panel="recipes">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Каталог</p>
+              <h2>Все рецепты</h2>
+              <p class="panel-description">Карточки открываются в полноценный рецепт с ингредиентами, шагами и хранением.</p>
+            </div>
+            <div class="toolbar toolbar-wrap">
+              <label class="field compact-field">
+                <span class="field-label">Поиск</span>
+                <input id="recipeSearch" type="search" placeholder="Например, лосось" autocomplete="off" />
+              </label>
+              <label class="field compact-field">
+                <span class="field-label">Тип блюда</span>
+                <select id="recipeFilter"></select>
+              </label>
+            </div>
+          </div>
+          <div class="chip-row" id="recipeTags" aria-label="Быстрые фильтры"></div>
+          <div class="recipe-grid" id="recipeGrid"></div>
+        </section>
+
+        <section class="tab-panel" id="tab-week" data-panel="week" hidden>
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Планирование</p>
+              <h2>Недельный рацион</h2>
+              <p class="panel-description">Выбирай блюда по слотам. В режиме одного получателя появляется отдельная строка для второго человека.</p>
+            </div>
+            <div class="toolbar toolbar-wrap week-toolbar">
+              <button class="icon-button" id="previousWeek" type="button" aria-label="Предыдущая неделя">←</button>
+              <label class="field compact-field date-field">
+                <span class="field-label">Неделя с понедельника</span>
+                <input id="weekDate" type="date" />
+              </label>
+              <button class="icon-button" id="nextWeek" type="button" aria-label="Следующая неделя">→</button>
+              <label class="field compact-field">
+                <span class="field-label">Получатель</span>
+                <select id="recipientMode">
+                  <option value="both">Оба</option>
+                  <option value="me">Я</option>
+                  <option value="alina">Алина (Киси)</option>
+                </select>
+              </label>
+              <button class="button button-secondary" id="copyPreviousWeek" type="button">Скопировать прошлую неделю</button>
+            </div>
+          </div>
+          <div class="week-summary" id="weekSummary"></div>
+          <div class="week-board" id="weekBoard"></div>
+        </section>
+
+        <section class="tab-panel" id="tab-ingredients" data-panel="ingredients" hidden>
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Подготовка</p>
+              <h2>Ингредиенты текущей недели</h2>
+              <p class="panel-description">Количество считается из заполненных слотов. Срок хранения помогает расставить приоритет покупок.</p>
+            </div>
+            <div class="stat-strip" id="ingredientStats"></div>
+          </div>
+          <div class="category-list" id="ingredientList"></div>
+        </section>
+
+        <section class="tab-panel" id="tab-shopping" data-panel="shopping" hidden>
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Магазин</p>
+              <h2>Покупки</h2>
+              <p class="panel-description">Отмечай то, что уже куплено или есть дома. На телефоне список остаётся удобным для быстрых отметок.</p>
+            </div>
+            <div class="shopping-actions">
+              <button class="button button-secondary" id="clearShoppingChecks" type="button">Снять отметки</button>
+            </div>
+          </div>
+          <div class="shopping-progress" id="shoppingProgress"></div>
+          <div class="shopping-list" id="shoppingList"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="recipeModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <button class="modal-close" id="closeModal" type="button" aria-label="Закрыть">×</button>
+        <div id="modalContent"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
