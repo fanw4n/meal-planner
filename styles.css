@@ -224,3 +224,21 @@ main { margin-top: 24px; }
   .shopping-item { grid-template-columns: auto minmax(0, 1fr) auto; }
   .pantry-toggle { grid-column: 2 / -1; justify-self: start; }
 }
+
+
+.top-actions-buttons { display: flex; align-items: center; gap: 10px; }
+.auth-modal { width: min(500px, 100%); }
+.auth-form { display: grid; gap: 14px; margin-top: 18px; }
+.auth-form .field-label { color: var(--muted); }
+.auth-message { margin: 14px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.auth-message.is-success { color: #3d7658; }
+.auth-message.is-error { color: #a35d4f; }
+.button.is-signed-in { color: var(--accent-dark); background: var(--accent-soft); border-color: var(--accent); }
+
+@media (max-width: 820px) {
+  .top-actions-buttons { flex: 1; }
+}
+@media (max-width: 520px) {
+  .top-actions-buttons { width: 100%; flex-direction: column; align-items: stretch; }
+  .top-actions-buttons .button { width: 100%; }
+}
