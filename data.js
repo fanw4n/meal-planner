@@ -27,14 +27,36 @@ const IMAGE_BY_KIND = {
   "Лепёшка": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=900&q=82"
 };
 const IMAGE_BY_ID = {
+  "lasagna-turkey": "https://images.unsplash.com/photo-1709429790175-b02bb1b19207?auto=format&fit=crop&w=900&q=82",
+  "chicken-snacks": "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=900&q=82",
+  "baked-pies": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=82",
   "pollock-potato-gratin": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=900&q=82",
   "salmon-spinach-cherry": "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=82",
+  "borscht-chicken": "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=82",
   "moroccan-lentil-pumpkin": "https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?auto=format&fit=crop&w=900&q=82",
   "italian-wedding-soup": "https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?auto=format&fit=crop&w=900&q=82",
+  "chicken-spinach-soup": "https://images.unsplash.com/photo-1612966948332-81d747414a8f?auto=format&fit=crop&w=900&q=82",
+  "chopped-chicken-salad": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=82",
+  "warm-tuna-potato-salad": "https://images.unsplash.com/photo-1657047869586-258ee389a00d?auto=format&fit=crop&w=900&q=82",
+  "asian-shrimp-noodle-salad": "https://images.unsplash.com/photo-1749146878355-12966d7a83e0?auto=format&fit=crop&w=900&q=82",
+  "cottage-cheese-berries-nuts": "https://images.unsplash.com/photo-1753173301157-8136a70b4178?auto=format&fit=crop&w=900&q=82",
+  "greek-yogurt-granola": "https://images.unsplash.com/photo-1641494587136-eec74f1944ae?auto=format&fit=crop&w=900&q=82",
+  "cottage-cheese-mousse": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=900&q=82",
+  "millet-pear-porridge": "https://images.unsplash.com/photo-1515251256758-720a46104dcd?auto=format&fit=crop&w=900&q=82",
+  "avocado-egg-toast": "https://images.unsplash.com/photo-1744893811003-7e6bffd2ec8d?auto=format&fit=crop&w=900&q=82",
   "turkey-meatballs-pasta": "https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&w=900&q=82",
   "shrimp-avocado-salad": "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=900&q=82",
+  "protein-vatrushka": "https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=900&q=82",
+  "cottage-cheese-casserole": "https://images.unsplash.com/photo-1670790734657-9680589fae49?auto=format&fit=crop&w=900&q=82",
+  "lentil-chicken-bowl": "https://images.unsplash.com/photo-1762631383378-115f2d4cbe07?auto=format&fit=crop&w=900&q=82",
+  "beef-rice-beans": "https://images.unsplash.com/photo-1657812454225-96604351a83a?auto=format&fit=crop&w=900&q=82",
   "egg-white-omelet": "https://images.unsplash.com/photo-1513442542250-854d436a73f2?auto=format&fit=crop&w=900&q=82",
-  "beef-rice-beans": "https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=900&q=82"
+  "oatmeal-banana": "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=900&q=82",
+  "bulgur-turkey-tomato": "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=900&q=82",
+  "fish-broccoli-yogurt-sauce": "https://images.unsplash.com/photo-1498654896293-37aacf113fd9?auto=format&fit=crop&w=900&q=82",
+  "tuna-corn-cucumber-salad": "https://images.unsplash.com/photo-1568225506863-23b410f4d5c8?auto=format&fit=crop&w=900&q=82",
+  "flatbreads-chicken": "https://images.unsplash.com/photo-1777891257551-bd5ecdb71c7e?auto=format&fit=crop&w=900&q=82",
+  "minced-meat-salad": "https://images.unsplash.com/photo-1546069901-55d1670321aa?auto=format&fit=crop&w=900&q=82"
 };
 const DESCRIPTION_BY_ID = {
   "lasagna-turkey": "Тёплые итальянские слои, томатный соус и румяная сырная крышечка — уютный ужин из духовки.",
