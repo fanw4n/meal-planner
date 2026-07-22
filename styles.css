@@ -1,16 +1,16 @@
 :root {
-  --bg: #f5f2ea;
-  --surface: #fffdf9;
-  --surface-muted: #f0eee7;
-  --ink: #22302b;
-  --muted: #6b756f;
-  --line: #e4e1d8;
-  --accent: #2d6a55;
-  --accent-dark: #1d4d3c;
-  --accent-soft: #dcebe2;
-  --orange: #d98250;
-  --orange-soft: #f7e1d2;
-  --shadow: 0 18px 50px rgba(42, 51, 45, 0.08);
+  --bg: #153d34;
+  --surface: #fffaf0;
+  --surface-muted: #f1e7d5;
+  --ink: #1f342d;
+  --muted: #6f776f;
+  --line: #ddcfb7;
+  --accent: #d7ad55;
+  --accent-dark: #9b7025;
+  --accent-soft: #f2dfad;
+  --orange: #c78c91;
+  --orange-soft: #f0d9dc;
+  --shadow: 0 18px 50px rgba(6, 28, 22, 0.24);
   --radius-lg: 24px;
   --radius-md: 16px;
   --radius-sm: 10px;
@@ -26,20 +26,20 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at 90% -10%, rgba(217, 130, 80, 0.14), transparent 34%),
-    radial-gradient(circle at -10% 30%, rgba(45, 106, 85, 0.12), transparent 32%),
+    radial-gradient(circle at 90% -10%, rgba(215, 173, 85, 0.2), transparent 34%),
+    radial-gradient(circle at -10% 30%, rgba(199, 140, 145, 0.16), transparent 32%),
     var(--bg);
 }
 
 button, input, select { font: inherit; }
 button { cursor: pointer; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(45, 106, 85, 0.28); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(215, 173, 85, 0.42); outline-offset: 2px; }
 
 .app-shell { width: min(1440px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 56px; }
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 4px 24px; }
 .brand { display: flex; align-items: center; gap: 14px; }
-.brand-mark { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: var(--accent); color: white; font-size: 24px; box-shadow: 0 9px 24px rgba(45, 106, 85, 0.22); }
-.brand h1 { margin: 2px 0 0; font-size: clamp(24px, 3vw, 36px); letter-spacing: -0.04em; line-height: 1; }
+.brand-mark { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: var(--accent); color: var(--ink); font-size: 24px; box-shadow: 0 9px 24px rgba(45, 106, 85, 0.22); }
+.brand h1 { color: var(--surface); margin: 2px 0 0; font-size: clamp(24px, 3vw, 36px); letter-spacing: -0.04em; line-height: 1; }
 .eyebrow { margin: 0; color: var(--accent); text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; font-weight: 800; }
 .top-actions, .toolbar, .shopping-actions { display: flex; align-items: center; gap: 10px; }
 .sync-badge { display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border-radius: 999px; color: var(--accent-dark); background: var(--accent-soft); font-size: 12px; font-weight: 750; white-space: nowrap; }
@@ -47,7 +47,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .tabs { display: flex; gap: 6px; padding: 5px; overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 253, 249, 0.8); box-shadow: var(--shadow); }
 .tab-button { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 11px; padding: 12px 15px; color: var(--muted); background: transparent; font-weight: 750; font-size: 14px; transition: 160ms ease; }
 .tab-button:hover { color: var(--ink); background: var(--surface-muted); }
-.tab-button.is-active { color: white; background: var(--accent); box-shadow: 0 6px 14px rgba(45, 106, 85, 0.2); }
+.tab-button.is-active { color: var(--ink); background: var(--accent); box-shadow: 0 6px 14px rgba(45, 106, 85, 0.2); }
 .tab-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px; color: inherit; background: rgba(255, 255, 255, 0.2); font-size: 11px; }
 .tab-button:not(.is-active) .tab-count { background: var(--surface-muted); }
 
@@ -56,11 +56,13 @@ main { margin-top: 24px; }
 .tab-panel.is-visible { display: block; }
 @keyframes appear { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .panel-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 22px; margin: 12px 0 22px; }
-.panel-heading h2 { margin: 6px 0 6px; font-size: clamp(25px, 4vw, 38px); letter-spacing: -0.05em; line-height: 1; }
-.panel-description { max-width: 650px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.panel-heading h2 { color: var(--surface); margin: 6px 0 6px; font-size: clamp(25px, 4vw, 38px); letter-spacing: -0.05em; line-height: 1; }
+.panel-description { color: #d7e0d5; max-width: 650px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
 .toolbar-wrap { flex-wrap: wrap; justify-content: flex-end; }
+.week-toolbar { align-items: flex-end; }
+.week-toolbar .icon-button { align-self: flex-end; }
 .field { display: flex; flex-direction: column; gap: 5px; }
-.field-label { color: var(--muted); font-size: 11px; font-weight: 750; }
+.field-label { color: #d7e0d5; font-size: 11px; font-weight: 750; }
 .field input, .field select { min-height: 42px; border: 1px solid var(--line); border-radius: 11px; padding: 0 12px; color: var(--ink); background: var(--surface); box-shadow: 0 2px 8px rgba(43, 52, 46, 0.03); }
 .field input::placeholder { color: #a0a7a2; }
 .compact-field { min-width: 170px; }
@@ -81,8 +83,24 @@ main { margin-top: 24px; }
 .chip-button { cursor: pointer; }
 
 .recipe-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-.recipe-card { display: flex; flex-direction: column; min-height: 260px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255, 253, 249, 0.9); box-shadow: 0 6px 20px rgba(42, 51, 45, 0.04); transition: 180ms ease; }
+.recipe-card { display: flex; flex-direction: column; color: var(--ink); min-height: 260px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255, 253, 249, 0.9); box-shadow: 0 6px 20px rgba(42, 51, 45, 0.04); transition: 180ms ease; }
 .recipe-card:hover { transform: translateY(-3px); border-color: #c5d7cc; box-shadow: var(--shadow); }
+.recipe-card-image { aspect-ratio: 16 / 9; margin: -18px -18px 16px; overflow: hidden; border-radius: var(--radius-md) var(--radius-md) 0 0; background: linear-gradient(135deg, var(--surface-muted), var(--accent-soft)); }
+.recipe-card-image img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 260ms ease; }
+.recipe-card:hover .recipe-card-image img { transform: scale(1.04); }
+.recipe-card-top-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.time-chip { color: var(--accent-dark); border-color: #d9ba6b; background: var(--accent-soft); white-space: nowrap; }
+.recipe-card-footer .button { display: inline-flex; align-items: center; justify-content: center; min-width: 104px; text-align: center; }
+
+.recipe-kind { display: inline-flex; align-items: center; min-height: 25px; padding: 0 8px; border: 1px solid transparent; border-radius: 999px; }
+.kind-main { color: #8b651e; background: #f4e3ae; border-color: #e2c779; }
+.kind-soup { color: #8d4f59; background: #f0d9dc; border-color: #deb4b9; }
+.kind-salad { color: #27614a; background: #dcebdc; border-color: #b9d5ba; }
+.kind-breakfast, .kind-porridge { color: #8b651e; background: #f7edcf; border-color: #e6d49a; }
+.kind-snack { color: #8d4f59; background: #f0d9dc; border-color: #deb4b9; }
+.kind-baking, .kind-bake { color: #70542d; background: #f1e7d5; border-color: #dbc9a9; }
+.kind-flatbread { color: #536b39; background: #e4ead3; border-color: #c8d4ad; }
+.kind-default { color: var(--accent-dark); background: var(--accent-soft); border-color: #d9ba6b; }
 .recipe-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .recipe-kind { color: var(--orange); font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: 0.08em; }
 .recipe-card h3 { margin: 10px 0 8px; font-size: 18px; line-height: 1.12; letter-spacing: -0.025em; }
@@ -98,7 +116,7 @@ main { margin-top: 24px; }
 .summary-card strong { display: block; color: var(--accent-dark); font-size: 21px; line-height: 1; }
 .summary-card span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .week-board { display: grid; grid-template-columns: repeat(7, minmax(170px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 8px; }
-.day-card { min-width: 170px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255, 253, 249, 0.86); overflow: hidden; }
+.day-card { min-width: 170px; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255, 253, 249, 0.86); overflow: hidden; }
 .day-card.is-today { border-color: #a6cbb6; box-shadow: 0 0 0 2px rgba(166, 203, 182, 0.32); }
 .day-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 13px; background: var(--accent-soft); }
 .day-card-header strong { display: block; font-size: 15px; }
@@ -117,7 +135,7 @@ main { margin-top: 24px; }
 .stat-card strong { display: block; color: var(--accent-dark); font-size: 18px; }
 .stat-card span { display: block; color: var(--muted); font-size: 10px; }
 .category-list, .shopping-list { display: grid; gap: 12px; }
-.category-card { border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
+.category-card { color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
 .category-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 16px; background: var(--surface-muted); }
 .category-heading h3 { margin: 0; font-size: 15px; }
 .category-heading span { color: var(--muted); font-size: 11px; }
@@ -130,7 +148,7 @@ main { margin-top: 24px; }
 .shopping-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; color: var(--muted); font-size: 12px; }
 .progress-track { flex: 0 1 280px; height: 8px; border-radius: 999px; background: var(--surface-muted); overflow: hidden; }
 .progress-fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width 200ms ease; }
-.shopping-group { border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
+.shopping-group { color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
 .shopping-group h3 { margin: 0; padding: 13px 16px; background: var(--surface-muted); font-size: 15px; }
 .shopping-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 11px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line); }
 .shopping-item.is-checked { background: #f6faf6; }
@@ -145,7 +163,7 @@ main { margin-top: 24px; }
 
 .modal-backdrop[hidden] { display: none !important; }
 .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 18px; background: rgba(26, 34, 29, 0.46); backdrop-filter: blur(4px); }
-.modal { position: relative; width: min(720px, 100%); max-height: min(760px, calc(100vh - 36px)); overflow: auto; padding: 30px; border-radius: var(--radius-lg); background: var(--surface); box-shadow: 0 30px 90px rgba(24, 32, 27, 0.28); }
+.modal { color: var(--ink); position: relative; width: min(720px, 100%); max-height: min(760px, calc(100vh - 36px)); overflow: auto; padding: 30px; border-radius: var(--radius-lg); background: var(--surface); box-shadow: 0 30px 90px rgba(24, 32, 27, 0.28); }
 .modal-close { position: absolute; top: 13px; right: 15px; width: 34px; height: 34px; border: 0; border-radius: 9px; color: var(--muted); background: var(--surface-muted); font-size: 24px; line-height: 1; }
 .modal h2 { max-width: 590px; margin: 9px 0 8px; font-size: 30px; letter-spacing: -0.045em; line-height: 1.05; }
 .modal-subtitle { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
