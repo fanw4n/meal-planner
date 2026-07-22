@@ -232,16 +232,20 @@ function renderWeek() {
     [filled, "заполненных слотов"], [usedDays, "дней с планом"], [usedRecipes, "разных блюд"],
   ].map(([value, label]) => `<div class="summary-card"><strong>${value}</strong><span>${label}</span></div>`).join("");
 
-  $("weekBoard").innerHTML = days.map((date) => {
-    const day = isoDate(date);
-    return `<article class="day-card ${day === today ? "is-today" : ""}">
-      <header class="day-card-header"><div><strong>${escapeHtml(formatDayLong(date))}</strong><span>${escapeHtml(formatDateShort(date))}</span></div>${day === today ? '<span class="today-label">Сегодня</span>' : ""}</header>
-      ${people.map((person, index) => `<div class="recipient-row">
-        <div class="recipient-label"><span class="${index === 0 && state.recipientMode !== "both" ? "primary-label" : ""}">${PERSON_LABELS[person]}</span>${state.recipientMode !== "both" && index === 0 ? "<span>основной</span>" : ""}</div>
-        ${SLOT_ORDER.map((slot) => renderMealSelect(day, slot, person, plan.entries[entryKey(day, slot, person)])).join("")}
-      </div>`).join("")}
-    </article>`;
-  }).join("");
+  $("weekBoard").innerHTML = days.flatMap((date) => people.map((person) => renderDayCard(date, person, today, plan))).join("");
+}
+
+function renderDayCard(date, person, today, plan) {
+  const day = isoDate(date);
+  const separate = person !== "both";
+  const badges = `${separate ? `<span class="person-card-label">${PERSON_LABELS[person]}</span>` : ""}${day === today ? '<span class="today-label">Сегодня</span>' : ""}`;
+  return `<article class="day-card ${day === today ? "is-today" : ""} ${separate ? `is-separate person-${person}` : ""}">
+    <header class="day-card-header"><div><strong>${escapeHtml(formatDayLong(date))}</strong><span>${escapeHtml(formatDateShort(date))}</span></div><div class="day-card-badges">${badges}</div></header>
+    <div class="recipient-row ${separate ? "single-recipient" : ""}">
+      <div class="recipient-label"><span>${PERSON_LABELS[person]}</span></div>
+      ${SLOT_ORDER.map((slot) => renderMealSelect(day, slot, person, plan.entries[entryKey(day, slot, person)])).join("")}
+    </div>
+  </article>`;
 }
 
 function renderMealSelect(day, slot, person, selectedId) {
