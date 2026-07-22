@@ -1,5 +1,5 @@
 import { RECIPE_FILTERS, SLOT_LABELS, recipeMap as builtinRecipeMap, recipes as builtinRecipes } from "./data.js?v=design7-20260722";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync5-20260722";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync6-20260722";
 
 const STORAGE_KEY = "meal-planner-state-v1";
 const PERSON_LABELS = { me: "Мася", alina: "Кися", both: "Вместе" };
@@ -32,6 +32,8 @@ let syncTimer = null;
 let syncInFlight = false;
 let syncQueued = false;
 let authPromptShown = false;
+let authMode = "magic";
+let passwordRecoveryMode = false;
 
 let lastSessionUserId = null;
 
@@ -72,24 +74,101 @@ function updateAuthControls() {
 
 function authRedirectUrl() {
   const url = new URL(window.location.href);
+  if (url.hostname === "fanw4n.github.io" && url.pathname.startsWith("/meal-planner")) {
+    return "https://fanw4n.github.io/meal-planner/";
+  }
   url.search = "";
   url.hash = "";
   return url.toString();
 }
 
-function openAuthModal() {
-  if (supabaseUser) {
+function authErrorMessage(error, fallback) {
+  const code = error?.code || error?.error_code;
+  const known = {
+    invalid_credentials: "Email или пароль не подошли.",
+    email_not_confirmed: "Сначала подтверди email по ссылке из письма.",
+    signup_disabled: "Создание новых аккаунтов отключено в Supabase.",
+    otp_disabled: "В Supabase отключён вход по одноразовой ссылке.",
+    email_address_not_authorized: "Supabase пока не разрешает отправлять письма на этот адрес.",
+    over_email_send_rate_limit: "Слишком много писем. Попробуй ещё раз позже.",
+  };
+  if (known[code]) return known[code];
+  return error?.message ? fallback + " " + error.message : fallback;
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  passwordRecoveryMode = mode === "recovery";
+  const methods = $("authMethods");
+  const magicButton = $("authMagicMode");
+  const passwordButton = $("authPasswordMode");
+  const passwordField = $("authPasswordField");
+  const passwordActions = $("authPasswordActions");
+  const forgotButton = $("authForgotPassword");
+  const signupButton = $("authSignUp");
+  const emailField = $("authEmail")?.closest(".field");
+  const passwordInput = $("authPassword");
+  const submit = $("authSubmit");
+  const title = $("authTitle");
+  const subtitle = $("authSubtitle");
+
+  if (methods) methods.hidden = passwordRecoveryMode;
+  if (magicButton) magicButton.classList.toggle("is-active", mode === "magic");
+  if (passwordButton) passwordButton.classList.toggle("is-active", mode === "password");
+  if (passwordField) passwordField.hidden = mode === "magic";
+  if (passwordActions) passwordActions.hidden = mode !== "password";
+  if (forgotButton) forgotButton.hidden = mode !== "password";
+  if (signupButton) signupButton.hidden = mode !== "password";
+  if (emailField) emailField.hidden = false;
+  if (passwordInput) {
+    passwordInput.required = mode !== "magic";
+    passwordInput.autocomplete = mode === "recovery" ? "new-password" : "current-password";
+  }
+  if (submit) submit.textContent = mode === "magic" ? "Отправить ссылку" : mode === "recovery" ? "Сохранить пароль" : "Войти";
+
+  if (mode === "magic") {
+    if (title) title.textContent = "Войти в планировщик";
+    if (subtitle) subtitle.textContent = "Введи email — отправлю одноразовую ссылку. Пароль не нужен.";
+  } else if (mode === "password") {
+    if (title) title.textContent = "Войти по паролю";
+    if (subtitle) subtitle.textContent = "Введи email и пароль для синхронизации на всех устройствах.";
+  } else {
+    if (title) title.textContent = "Установить новый пароль";
+    if (subtitle) subtitle.textContent = "Придумай пароль для входа по email. Минимум 6 символов.";
+  }
+}
+
+function openAuthModal(mode = authMode) {
+  if (supabaseUser && mode !== "recovery") {
     void signOut();
     return;
   }
   authPromptShown = true;
   $("authModal").hidden = false;
-  $("authEmail").focus();
-  setAuthMessage(supabase ? "Введи email — отправлю одноразовую ссылку для входа." : "Подключаю синхронизацию…");
+  setAuthMode(mode);
+  const emailInput = $("authEmail");
+  if (passwordRecoveryMode) {
+    emailInput.value = supabaseUser?.email || emailInput.value;
+    emailInput.readOnly = true;
+  } else {
+    emailInput.readOnly = false;
+  }
+  (passwordRecoveryMode ? $("authPassword") : emailInput).focus();
+  setAuthMessage(
+    passwordRecoveryMode
+      ? "Ссылка подтверждена. Теперь задай пароль."
+      : supabase
+        ? mode === "password"
+          ? "Введи данные аккаунта."
+          : "Введи email — отправлю одноразовую ссылку для входа."
+        : "Подключаю синхронизацию…",
+  );
 }
 
 function closeAuthModal() {
   $("authModal").hidden = true;
+  passwordRecoveryMode = false;
+  setAuthMode("magic");
   setAuthMessage("");
 }
 
@@ -112,17 +191,145 @@ async function sendMagicLink(event) {
   const submit = $("authSubmit");
   submit.disabled = true;
   setAuthMessage("Отправляю ссылку на почту…");
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: authRedirectUrl() },
-  });
-  submit.disabled = false;
-  if (error) {
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: authRedirectUrl() },
+    });
+    if (error) throw error;
+    setAuthMessage("Ссылка отправлена. Открой её в этом браузере — после этого план будет синхронизироваться.", "success");
+  } catch (error) {
     console.error(error);
-    setAuthMessage("Не получилось отправить ссылку. Проверь email и настройки redirect URL.", "error");
+    setAuthMessage(authErrorMessage(error, "Не получилось отправить ссылку."), "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+function authCredentials() {
+  return {
+    email: $("authEmail").value.trim(),
+    password: $("authPassword").value,
+  };
+}
+
+async function signInWithPassword(event) {
+  event.preventDefault();
+  if (!supabase) {
+    setAuthMessage("Supabase ещё подключается. Попробуй через секунду.", "error");
     return;
   }
-  setAuthMessage("Ссылка отправлена. Открой её в этом браузере — после этого план будет синхронизироваться.", "success");
+  const { email, password } = authCredentials();
+  if (!email || !password) {
+    setAuthMessage("Введи email и пароль.", "error");
+    return;
+  }
+  const submit = $("authSubmit");
+  submit.disabled = true;
+  setAuthMessage("Проверяю данные…");
+  try {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    closeAuthModal();
+    showToast("Вход выполнен");
+  } catch (error) {
+    console.error(error);
+    setAuthMessage(authErrorMessage(error, "Не получилось войти."), "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function signUpWithPassword() {
+  if (!supabase) {
+    setAuthMessage("Supabase ещё подключается. Попробуй через секунду.", "error");
+    return;
+  }
+  const { email, password } = authCredentials();
+  if (!email || !password) {
+    setAuthMessage("Введи email и пароль.", "error");
+    return;
+  }
+  if (password.length < 6) {
+    setAuthMessage("Пароль должен быть не короче 6 символов.", "error");
+    return;
+  }
+  const submit = $("authSubmit");
+  submit.disabled = true;
+  setAuthMessage("Создаю аккаунт…");
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: authRedirectUrl() },
+    });
+    if (error) throw error;
+    if (data.session) {
+      closeAuthModal();
+      showToast("Аккаунт создан, вход выполнен");
+    } else {
+      setAuthMessage("Аккаунт создан. Подтверди email по ссылке из письма, затем войди по паролю.", "success");
+    }
+  } catch (error) {
+    console.error(error);
+    setAuthMessage(authErrorMessage(error, "Не получилось создать аккаунт."), "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function requestPasswordReset() {
+  if (!supabase) {
+    setAuthMessage("Supabase ещё подключается. Попробуй через секунду.", "error");
+    return;
+  }
+  const email = $("authEmail").value.trim();
+  if (!email) {
+    setAuthMessage("Сначала введи email.", "error");
+    $("authEmail").focus();
+    return;
+  }
+  setAuthMessage("Отправляю ссылку для установки нового пароля…");
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: authRedirectUrl(),
+    });
+    if (error) throw error;
+    setAuthMessage("Ссылка отправлена. Открой её, придумай пароль и затем войди по нему.", "success");
+  } catch (error) {
+    console.error(error);
+    setAuthMessage(authErrorMessage(error, "Не получилось отправить ссылку для сброса пароля."), "error");
+  }
+}
+
+async function updatePassword(event) {
+  event.preventDefault();
+  if (!supabase) return;
+  const password = $("authPassword").value;
+  if (password.length < 6) {
+    setAuthMessage("Пароль должен быть не короче 6 символов.", "error");
+    return;
+  }
+  const submit = $("authSubmit");
+  submit.disabled = true;
+  setAuthMessage("Сохраняю пароль…");
+  try {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+    closeAuthModal();
+    showToast("Пароль сохранён");
+  } catch (error) {
+    console.error(error);
+    setAuthMessage(authErrorMessage(error, "Не получилось сохранить пароль."), "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+function handleAuthSubmit(event) {
+  if (authMode === "magic") return sendMagicLink(event);
+  if (authMode === "recovery") return updatePassword(event);
+  return signInWithPassword(event);
 }
 
 async function signOut() {
@@ -405,7 +612,14 @@ async function initSupabase() {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
     await applySupabaseSession(data.session);
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        window.setTimeout(() => {
+          supabaseUser = session?.user || supabaseUser;
+          updateAuthControls();
+          openAuthModal("recovery");
+        }, 0);
+      }
       window.setTimeout(() => void applySupabaseSession(session), 0);
     });
   } catch (error) {
@@ -1031,7 +1245,11 @@ function bindEvents() {
   $("cancelRecipeEditor").addEventListener("click", closeRecipeEditor);
   $("recipeEditorModal").addEventListener("click", (event) => { if (event.target === $("recipeEditorModal")) closeRecipeEditor(); });
   $("authButton").addEventListener("click", openAuthModal);
-  $("authForm").addEventListener("submit", sendMagicLink);
+  $("authMagicMode").addEventListener("click", () => setAuthMode("magic"));
+  $("authPasswordMode").addEventListener("click", () => setAuthMode("password"));
+  $("authForgotPassword").addEventListener("click", requestPasswordReset);
+  $("authSignUp").addEventListener("click", signUpWithPassword);
+  $("authForm").addEventListener("submit", handleAuthSubmit);
   $("closeAuthModal").addEventListener("click", closeAuthModal);
   $("authModal").addEventListener("click", (event) => { if (event.target === $("authModal")) closeAuthModal(); });
   $("closeModal").addEventListener("click", closeModal);
