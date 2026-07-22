@@ -10,7 +10,7 @@
     />
     <title>Меню на неделю</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=sync1-20260722" />
+    <link rel="stylesheet" href="styles.css?v=sync4-20260722" />
   </head>
   <body>
     <div class="app-shell">
@@ -36,10 +36,7 @@
           <span>Рецепты</span><span class="tab-count" id="recipeCount">0</span>
         </button>
         <button class="tab-button" data-tab="week" type="button">Недельный рацион</button>
-        <button class="tab-button" data-tab="ingredients" type="button">Ингредиенты</button>
-        <button class="tab-button" data-tab="shopping" type="button">
-          <span>Покупки</span><span class="tab-count" id="shoppingCount">0</span>
-        </button>
+        <button class="tab-button" data-tab="ingredients" type="button">Ингредиенты и покупки</button>
       </nav>
 
       <main>
@@ -50,7 +47,8 @@
               <h2>Все рецепты</h2>
               <p class="panel-description">Карточки открываются в полноценный рецепт с ингредиентами, шагами и хранением.</p>
             </div>
-            <div class="toolbar toolbar-wrap">
+            <div class="toolbar toolbar-wrap recipe-toolbar">
+              <button class="button button-primary" id="addRecipeButton" type="button">Добавить рецепт</button>
               <label class="field compact-field">
                 <span class="field-label">Поиск</span>
                 <input id="recipeSearch" type="search" placeholder="Например, лосось" autocomplete="off" />
@@ -96,28 +94,17 @@
         <section class="tab-panel" id="tab-ingredients" data-panel="ingredients" hidden>
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">Подготовка</p>
+              <p class="eyebrow">Подготовка и магазин</p>
               <h2>Ингредиенты текущей недели</h2>
-              <p class="panel-description">Количество считается из заполненных слотов. Срок хранения помогает расставить приоритет покупок.</p>
+              <p class="panel-description">Количество, срок хранения и отметки покупки собраны в одном списке. Можно отметить продукт купленным или указать, что он уже есть дома.</p>
             </div>
-            <div class="stat-strip" id="ingredientStats"></div>
-          </div>
-          <div class="category-list" id="ingredientList"></div>
-        </section>
-
-        <section class="tab-panel" id="tab-shopping" data-panel="shopping" hidden>
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">Магазин</p>
-              <h2>Покупки</h2>
-              <p class="panel-description">Отмечай то, что уже куплено или есть дома. На телефоне список остаётся удобным для быстрых отметок.</p>
-            </div>
-            <div class="shopping-actions">
+            <div class="ingredient-heading-actions">
+              <div class="stat-strip" id="ingredientStats"></div>
               <button class="button button-secondary" id="clearShoppingChecks" type="button">Снять отметки</button>
             </div>
           </div>
           <div class="shopping-progress" id="shoppingProgress"></div>
-          <div class="shopping-list" id="shoppingList"></div>
+          <div class="category-list" id="ingredientList"></div>
         </section>
       </main>
     </div>
@@ -126,6 +113,107 @@
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <button class="modal-close" id="closeModal" type="button" aria-label="Закрыть">×</button>
         <div id="modalContent"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="recipeEditorModal" hidden>
+      <div class="modal recipe-editor-modal" role="dialog" aria-modal="true" aria-labelledby="recipeEditorTitle">
+        <button class="modal-close" id="closeRecipeEditor" type="button" aria-label="Закрыть">×</button>
+        <p class="eyebrow">Каталог</p>
+        <h2 id="recipeEditorTitle">Добавить рецепт</h2>
+        <p class="modal-subtitle">Заполни основные параметры, ингредиенты и шаги. Ссылка на изображение удобнее для синхронизации; файл можно сохранить прямо в рецепте.</p>
+        <form id="recipeForm" class="recipe-form">
+          <div class="recipe-form-grid">
+            <label class="field recipe-field-wide">
+              <span class="field-label">Название</span>
+              <input id="recipeTitle" type="text" placeholder="Например, паста с креветками" required />
+            </label>
+            <label class="field">
+              <span class="field-label">Тип блюда</span>
+              <select id="recipeKind">
+                <option value="Основное">Основное</option>
+                <option value="Закуска">Закуска</option>
+                <option value="Выпечка">Выпечка</option>
+                <option value="Суп">Суп</option>
+                <option value="Салат">Салат</option>
+                <option value="Перекус">Перекус</option>
+                <option value="Каша">Каша</option>
+                <option value="Завтрак">Завтрак</option>
+                <option value="Запеканка">Запеканка</option>
+                <option value="Лепёшка">Лепёшка</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Время готовки, мин</span>
+              <input id="recipePrepMinutes" type="number" min="1" step="1" value="30" />
+            </label>
+            <label class="field recipe-field-wide">
+              <span class="field-label">Короткое описание</span>
+              <input id="recipeDescription" type="text" placeholder="Красочное описание блюда" />
+            </label>
+            <label class="field recipe-field-wide">
+              <span class="field-label">Заметка к рецепту</span>
+              <textarea id="recipeNote" rows="2" placeholder="Заготовки, замены или важная деталь"></textarea>
+            </label>
+            <label class="field recipe-field-wide">
+              <span class="field-label">Теги через запятую</span>
+              <input id="recipeTagsInput" type="text" placeholder="заготовка, духовка" />
+            </label>
+          </div>
+
+          <fieldset class="recipe-fieldset">
+            <legend>Слоты питания</legend>
+            <div class="recipe-check-grid">
+              <label><input type="checkbox" name="recipeMealType" value="breakfast" /> Завтрак</label>
+              <label><input type="checkbox" name="recipeMealType" value="lunch" /> Обед</label>
+              <label><input type="checkbox" name="recipeMealType" value="dinner" /> Ужин</label>
+              <label><input type="checkbox" name="recipeMealType" value="lateSnack" /> Поздний перекус</label>
+            </div>
+          </fieldset>
+
+          <fieldset class="recipe-fieldset">
+            <legend>Подходит</legend>
+            <div class="recipe-check-grid">
+              <label><input type="checkbox" name="recipeAudience" value="me" checked /> Мася</label>
+              <label><input type="checkbox" name="recipeAudience" value="alina" checked /> Кися</label>
+            </div>
+          </fieldset>
+
+          <div class="recipe-form-section">
+            <div class="recipe-section-heading">
+              <h3>Изображение</h3>
+              <span>URL или файл до 1,5 МБ</span>
+            </div>
+            <label class="field">
+              <span class="field-label">Ссылка на изображение</span>
+              <input id="recipeImageUrl" type="url" placeholder="https://..." />
+            </label>
+            <label class="field">
+              <span class="field-label">Загрузить свой файл</span>
+              <input id="recipeImageFile" type="file" accept="image/*" />
+            </label>
+            <img id="recipeImagePreview" class="recipe-image-preview" alt="Предпросмотр изображения" hidden />
+          </div>
+
+          <div class="recipe-form-section">
+            <div class="recipe-section-heading">
+              <h3>Ингредиенты</h3>
+              <button class="button button-secondary" id="addIngredientRow" type="button">Добавить ингредиент</button>
+            </div>
+            <div id="recipeIngredientRows" class="recipe-ingredient-rows"></div>
+          </div>
+
+          <label class="field">
+            <span class="field-label">Шаги приготовления — по одному на строку</span>
+            <textarea id="recipeSteps" rows="5" placeholder="Подготовить продукты&#10;Смешать ингредиенты&#10;Запечь или подать"></textarea>
+          </label>
+
+          <p class="recipe-form-message" id="recipeFormMessage" aria-live="polite"></p>
+          <div class="modal-actions">
+            <button class="button button-ghost" id="cancelRecipeEditor" type="button">Отмена</button>
+            <button class="button button-primary" type="submit">Сохранить рецепт</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -147,6 +235,6 @@
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=sync3-20260722"></script>
+    <script type="module" src="app.js?v=sync4-20260722"></script>
   </body>
 </html>
