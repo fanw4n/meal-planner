@@ -1,5 +1,5 @@
 import { RECIPE_FILTERS, SLOT_LABELS, recipeMap, recipes } from "./data.js?v=design7-20260722";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync2-20260722";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync3-20260722";
 
 const STORAGE_KEY = "meal-planner-state-v1";
 const PERSON_LABELS = { me: "Мася", alina: "Кися", both: "Вместе" };
@@ -22,6 +22,7 @@ let supabaseUser = null;
 let syncTimer = null;
 let syncInFlight = false;
 let syncQueued = false;
+let authPromptShown = false;
 let lastSessionUserId = null;
 
 
@@ -63,6 +64,7 @@ function openAuthModal() {
     void signOut();
     return;
   }
+  authPromptShown = true;
   $("authModal").hidden = false;
   $("authEmail").focus();
   setAuthMessage(supabase ? "Введи email — отправлю одноразовую ссылку для входа." : "Подключаю синхронизацию…");
@@ -71,6 +73,14 @@ function openAuthModal() {
 function closeAuthModal() {
   $("authModal").hidden = true;
   setAuthMessage("");
+}
+
+function maybeOpenAuthPrompt() {
+  if (authPromptShown || supabaseUser || !supabase) return;
+  authPromptShown = true;
+  window.setTimeout(() => {
+    if (!supabaseUser && $("authModal").hidden) openAuthModal();
+  }, 350);
 }
 
 async function sendMagicLink(event) {
@@ -270,6 +280,7 @@ async function applySupabaseSession(session) {
     lastSessionUserId = null;
     setStorageStatus("Сохранено в браузере");
     renderAll();
+    maybeOpenAuthPrompt();
     return;
   }
   if (!changed && lastSessionUserId === supabaseUser.id) return;
