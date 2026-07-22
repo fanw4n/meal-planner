@@ -24,7 +24,7 @@ const IMAGE_BY_KIND = {
   "Каша": "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=900&q=82",
   "Завтрак": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=900&q=82",
   "Запеканка": "https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=900&q=82",
-  "Лепёшка": "https://images.unsplash.com/photo-1548365328-8b849e6f90b4?auto=format&fit=crop&w=900&q=82"
+  "Лепёшка": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=900&q=82"
 };
 const IMAGE_BY_ID = {
   "pollock-potato-gratin": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=900&q=82",
