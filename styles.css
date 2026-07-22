@@ -120,6 +120,12 @@ main { margin-top: 24px; }
 .day-card.is-today { border-color: #a6cbb6; box-shadow: 0 0 0 2px rgba(166, 203, 182, 0.32); }
 .day-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 13px; background: var(--accent-soft); }
 .day-card-header strong { display: block; font-size: 15px; }
+.day-card-badges { display: flex; align-items: flex-start; justify-content: flex-end; flex-wrap: wrap; gap: 5px; }
+.person-card-label { padding: 4px 7px; border-radius: 7px; color: var(--accent-dark); background: var(--accent-soft); font-size: 9px; font-weight: 850; }
+.day-card.person-me { border-color: #d9ba6b; }
+.day-card.person-alina { border-color: #d9b1b7; }
+.day-card.is-separate .recipient-label { color: var(--ink); }
+
 .day-card-header span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .today-label { padding: 4px 6px; border-radius: 6px; color: var(--accent-dark); background: rgba(255, 255, 255, 0.55); font-size: 9px; font-weight: 850; text-transform: uppercase; }
 .recipient-row { padding: 10px; border-top: 1px solid var(--line); }
