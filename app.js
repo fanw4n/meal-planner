@@ -207,7 +207,7 @@ function renderRecipes() {
 
   $("recipeGrid").innerHTML = filtered.length ? filtered.map((recipe) => `
     <article class="recipe-card" data-recipe-id="${recipe.id}" tabindex="0" role="button" aria-label="Открыть рецепт: ${escapeHtml(recipe.title)}">
-      <div class="recipe-card-image"><img src="${escapeHtml(recipe.image || "")}" alt="${escapeHtml(recipe.title)}" loading="lazy" decoding="async" /></div>
+      <div class="recipe-card-image"><img src="${escapeHtml(recipe.image || "")}" alt="${escapeHtml(recipe.title)}" loading="eager" decoding="async" /></div>
       <div class="recipe-card-top"><span class="recipe-kind kind-${kindClass(recipe.kind)}">${escapeHtml(recipe.kind)}</span><div class="recipe-card-top-meta"><span class="chip">${recipe.mealTypes.map((slot) => SLOT_LABELS[slot]).join(" · ")}</span><span class="chip time-chip">${timeLabel(recipe)}</span></div></div>
       <h3>${escapeHtml(recipe.title)}</h3>
       <p>${escapeHtml(recipe.description || "Яркое блюдо для удобного домашнего меню.")}</p>
