@@ -1,5 +1,5 @@
-import { RECIPE_FILTERS, SLOT_LABELS, recipeMap, recipes } from "./data.js?v=design7-20260722";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync3-20260722";
+import { RECIPE_FILTERS, SLOT_LABELS, recipeMap as builtinRecipeMap, recipes as builtinRecipes } from "./data.js?v=design7-20260722";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync4-20260722";
 
 const STORAGE_KEY = "meal-planner-state-v1";
 const PERSON_LABELS = { me: "Мася", alina: "Кися", both: "Вместе" };
@@ -16,6 +16,15 @@ const CATEGORY_ORDER = ["Мясо", "Рыба", "Морепродукты", "Я�
 const $ = (id) => document.getElementById(id);
 
 const state = loadState();
+const RECIPE_KIND_OPTIONS = ["Основное", "Закуска", "Выпечка", "Суп", "Салат", "Перекус", "Каша", "Завтрак", "Запеканка", "Лепёшка"];
+const RECIPE_STORAGE_OPTIONS = [
+  { value: "fresh", label: "Свежее" },
+  { value: "chilled", label: "Охлаждённое" },
+  { value: "frozen", label: "Заморозка" },
+  { value: "dry", label: "Бакалея" },
+];
+const baseRecipes = builtinRecipes;
+const baseRecipeMap = builtinRecipeMap;
 let toastTimer;
 let supabase = null;
 let supabaseUser = null;
@@ -23,8 +32,17 @@ let syncTimer = null;
 let syncInFlight = false;
 let syncQueued = false;
 let authPromptShown = false;
+
 let lastSessionUserId = null;
 
+
+function recipeCatalog() {
+  return [...baseRecipes, ...(state.customRecipes || [])];
+}
+
+function recipeById(recipeId) {
+  return baseRecipeMap[recipeId] || (state.customRecipes || []).find((recipe) => recipe.id === recipeId) || null;
+}
 
 function setStorageStatus(message) {
   const element = $("storageStatus");
@@ -132,7 +150,7 @@ function hasLocalWeekData(weekKey) {
 function cloudEntryRows(weekKey) {
   const entries = getWeekPlan(weekKey).entries || {};
   return Object.entries(entries)
-    .filter(([, recipeId]) => recipeId && recipeMap[recipeId])
+    .filter(([, recipeId]) => recipeId && recipeById(recipeId))
     .map(([key, recipeId]) => {
       const [day, slot, person] = key.split("|");
       return {
@@ -156,6 +174,87 @@ function cloudShoppingRows(weekKey) {
       checked: Boolean(status.checked),
       pantry: Boolean(status.pantry),
     }));
+}
+
+
+function customRecipeFromRow(row) {
+  return {
+    id: row.recipe_id,
+    title: row.title,
+    kind: row.kind,
+    mealTypes: Array.isArray(row.meal_types) ? row.meal_types : [],
+    nutrition: row.nutrition && typeof row.nutrition === "object" ? row.nutrition : { label: "профиль порции" },
+    audience: Array.isArray(row.audience) && row.audience.length ? row.audience : ["me", "alina"],
+    ingredients: Array.isArray(row.ingredients) ? row.ingredients : [],
+    steps: Array.isArray(row.steps) ? row.steps : [],
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    note: row.note || "",
+    description: row.description || "Яркое блюдо для домашнего меню.",
+    prepMinutes: Number(row.prep_minutes) || 30,
+    image: row.image || "",
+    isCustom: true,
+  };
+}
+
+function customRecipeRow(recipe) {
+  return {
+    user_id: supabaseUser.id,
+    recipe_id: recipe.id,
+    title: recipe.title,
+    kind: recipe.kind,
+    meal_types: recipe.mealTypes,
+    audience: recipe.audience,
+    nutrition: recipe.nutrition || { label: "профиль порции" },
+    ingredients: recipe.ingredients || [],
+    steps: recipe.steps || [],
+    tags: recipe.tags || [],
+    note: recipe.note || "",
+    description: recipe.description || "",
+    prep_minutes: Number(recipe.prepMinutes) || 30,
+    image: recipe.image || "",
+  };
+}
+
+async function pushCustomRecipes(list = state.customRecipes || []) {
+  if (!supabaseUser || !supabase || !list.length) return;
+  try {
+    const result = await supabase.from("custom_recipes").upsert(
+      list.map(customRecipeRow),
+      { onConflict: "user_id,recipe_id" },
+    );
+    if (result.error) throw result.error;
+  } catch (error) {
+    console.warn("Пользовательские рецепты пока не синхронизированы.", error);
+  }
+}
+
+async function pullCustomRecipes() {
+  if (!supabaseUser || !supabase) return;
+  try {
+    const result = await supabase
+      .from("custom_recipes")
+      .select("recipe_id,title,kind,meal_types,audience,nutrition,ingredients,steps,tags,note,description,prep_minutes,image")
+      .eq("user_id", supabaseUser.id)
+      .order("created_at", { ascending: true });
+    if (result.error) throw result.error;
+
+    const cloudRecipes = (result.data || []).map(customRecipeFromRow);
+    const localRecipes = state.customRecipes || [];
+    const cloudIds = new Set(cloudRecipes.map((recipe) => recipe.id));
+    const localOnly = localRecipes.filter((recipe) => !cloudIds.has(recipe.id));
+
+    if (!cloudRecipes.length && localRecipes.length) {
+      await pushCustomRecipes(localRecipes);
+      return;
+    }
+
+    state.customRecipes = [...cloudRecipes, ...localOnly];
+    if (localOnly.length) await pushCustomRecipes(localOnly);
+    persistLocal();
+    renderAll();
+  } catch (error) {
+    console.warn("Таблица пользовательских рецептов ещё не подключена или недоступна.", error);
+  }
 }
 
 async function pullCloudWeek(weekKey) {
@@ -252,7 +351,10 @@ async function pushCloudWeek(weekKey = state.weekStart) {
 function scheduleCloudSync() {
   if (!supabaseUser) return;
   clearTimeout(syncTimer);
-  syncTimer = window.setTimeout(() => void pushCloudWeek(state.weekStart), 500);
+  syncTimer = window.setTimeout(() => {
+    void pushCloudWeek(state.weekStart);
+    void pushCustomRecipes();
+  }, 500);
 }
 
 function changeWeek(value) {
@@ -285,6 +387,7 @@ async function applySupabaseSession(session) {
   }
   if (!changed && lastSessionUserId === supabaseUser.id) return;
   lastSessionUserId = supabaseUser.id;
+  await pullCustomRecipes();
   await pullCloudWeek(state.weekStart);
 }
 
@@ -323,6 +426,7 @@ function defaultState() {
     weeks: {},
     shopping: {},
     shoppingByWeek: {},
+    customRecipes: [],
   };
 }
 
@@ -336,7 +440,9 @@ function loadState() {
   }
   if (next.recipientMode === "me" || next.recipientMode === "alina") next.recipientMode = "separate";
   if (next.recipeTag === "только для меня") next.recipeTag = "Мася";
+  if (next.activeTab === "shopping") next.activeTab = "ingredients";
   next.weeks ||= {};
+  next.customRecipes = Array.isArray(next.customRecipes) ? next.customRecipes.filter((recipe) => recipe && recipe.id && recipe.title) : [];
   next.shoppingByWeek ||= {};
   if (next.shopping && Object.keys(next.shopping).length && !next.shoppingByWeek[next.weekStart]) {
     next.shoppingByWeek[next.weekStart] = next.shopping;
@@ -438,7 +544,7 @@ function getPeopleForMode() {
 }
 
 function getAvailableRecipes(slot, person) {
-  return recipes
+  return recipeCatalog()
     .filter((recipe) => recipe.mealTypes.includes(slot))
     .filter((recipe) => person === "both" ? recipe.audience.includes("me") && recipe.audience.includes("alina") : recipe.audience.includes(person))
     .sort((a, b) => a.title.localeCompare(b.title, "ru"));
@@ -449,7 +555,6 @@ function renderAll() {
   renderRecipes();
   renderWeek();
   renderIngredients();
-  renderShopping();
 }
 
 function renderTabs() {
@@ -498,7 +603,7 @@ function renderRecipeFilters() {
   filter.innerHTML = RECIPE_FILTERS.map((item) => `<option value="${item.value}">${item.label}</option>`).join("");
   filter.value = state.recipeFilter;
 
-  const baseTags = [...new Set(recipes.flatMap((recipe) => recipe.tags.filter((tag) => !tag.includes("для меня"))))];
+  const baseTags = [...new Set(recipeCatalog().flatMap((recipe) => recipe.tags.filter((tag) => !tag.includes("для меня"))))];
   const tags = [
     { value: "all", label: "Все теги" },
     { value: "Мася", label: "Мася" },
@@ -517,13 +622,13 @@ function renderRecipes() {
   renderRecipeFilters();
   $("recipeSearch").value = state.recipeSearch;
   const query = state.recipeSearch.trim().toLowerCase();
-  const filtered = recipes.filter((recipe) => {
+  const filtered = recipeCatalog().filter((recipe) => {
     const matchesQuery = !query || `${recipe.title} ${recipe.kind} ${recipe.tags.join(" ")} ${recipe.description || ""}`.toLowerCase().includes(query);
     const matchesFilter = state.recipeFilter === "all" || recipe.mealTypes.includes(state.recipeFilter) || (state.recipeFilter === "soup" && recipe.kind === "Суп") || (state.recipeFilter === "salad" && recipe.kind === "Салат");
     const matchesTag = state.recipeTag === "all" || recipeFilterTags(recipe).includes(state.recipeTag);
     return matchesQuery && matchesFilter && matchesTag;
   });
-  $("recipeCount").textContent = String(recipes.length);
+  $("recipeCount").textContent = String(recipeCatalog().length);
 
   $("recipeGrid").innerHTML = filtered.length ? filtered.map((recipe) => `
     <article class="recipe-card" data-recipe-id="${recipe.id}" tabindex="0" role="button" aria-label="Открыть рецепт: ${escapeHtml(recipe.title)}">
@@ -535,6 +640,147 @@ function renderRecipes() {
       <div class="recipe-card-footer"><span class="recipe-macro">${escapeHtml(nutritionLabel(recipe))}</span><span class="button button-secondary">Подробнее</span></div>
     </article>
   `).join("") : `<div class="empty-state"><div><strong>Ничего не найдено</strong><p>Попробуй изменить поиск или фильтр.</p></div></div>`;
+}
+
+let selectedRecipeImageData = "";
+
+function recipeIngredientRowHtml(values = {}) {
+  const value = (key) => escapeHtml(values[key] ?? "");
+  const selectedStorage = values.storage || "fresh";
+  const storageOptions = RECIPE_STORAGE_OPTIONS.map((option) => `<option value="${option.value}" ${selectedStorage === option.value ? "selected" : ""}>${option.label}</option>`).join("");
+  return `<div class="recipe-ingredient-row" data-ingredient-row>
+    <label class="field"><span class="field-label">Ингредиент</span><input data-ingredient-name type="text" value="${value("name")}" placeholder="Например, куриное филе" /></label>
+    <label class="field"><span class="field-label">Количество</span><input data-ingredient-amount type="number" min="0.1" step="0.1" value="${value("amount")}" placeholder="150" /></label>
+    <label class="field"><span class="field-label">Ед.</span><input data-ingredient-unit type="text" value="${value("unit")}" placeholder="г" /></label>
+    <label class="field"><span class="field-label">Категория</span><input data-ingredient-category type="text" value="${value("category")}" placeholder="Овощи" /></label>
+    <label class="field"><span class="field-label">Срок, дн.</span><input data-ingredient-shelf type="number" min="1" step="1" value="${value("shelfDays")}" placeholder="7" /></label>
+    <label class="field"><span class="field-label">Хранение</span><select data-ingredient-storage>${storageOptions}</select></label>
+    <button class="remove-ingredient-button" data-remove-ingredient type="button">Удалить</button>
+  </div>`;
+}
+
+function addRecipeIngredientRow(values = {}) {
+  $("recipeIngredientRows").insertAdjacentHTML("beforeend", recipeIngredientRowHtml(values));
+}
+
+function setRecipeFormMessage(message, tone = "") {
+  const element = $("recipeFormMessage");
+  if (!element) return;
+  element.textContent = message;
+  element.className = `recipe-form-message${tone ? ` is-${tone}` : ""}`;
+}
+
+function updateRecipeImagePreview(source = "") {
+  const preview = $("recipeImagePreview");
+  if (!preview) return;
+  preview.src = source || "";
+  preview.hidden = !source;
+}
+
+function resetRecipeForm() {
+  $("recipeForm").reset();
+  $("recipeIngredientRows").innerHTML = "";
+  addRecipeIngredientRow();
+  selectedRecipeImageData = "";
+  updateRecipeImagePreview("");
+  setRecipeFormMessage("");
+}
+
+function openRecipeEditor() {
+  resetRecipeForm();
+  $("recipeEditorModal").hidden = false;
+  document.body.style.overflow = "hidden";
+  $("recipeTitle").focus();
+}
+
+function closeRecipeEditor() {
+  $("recipeEditorModal").hidden = true;
+  document.body.style.overflow = "";
+}
+
+function handleRecipeImageFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    setRecipeFormMessage("Выбери файл изображения.", "error");
+    event.target.value = "";
+    return;
+  }
+  if (file.size > 1500000) {
+    setRecipeFormMessage("Изображение слишком большое. Выбери файл до 1,5 МБ или укажи ссылку.", "error");
+    event.target.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    selectedRecipeImageData = String(reader.result || "");
+    updateRecipeImagePreview(selectedRecipeImageData);
+    setRecipeFormMessage("");
+  });
+  reader.readAsDataURL(file);
+}
+
+function handleRecipeImageUrl(event) {
+  if (selectedRecipeImageData) return;
+  updateRecipeImagePreview(event.target.value.trim());
+}
+
+function recipeId() {
+  const token = typeof globalThis.crypto?.randomUUID === "function" ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `custom-${token}`;
+}
+
+function handleRecipeSubmit(event) {
+  event.preventDefault();
+  const title = $("recipeTitle").value.trim();
+  const kind = $("recipeKind").value;
+  const mealTypes = [...document.querySelectorAll('input[name="recipeMealType"]:checked')].map((input) => input.value);
+  const audience = [...document.querySelectorAll('input[name="recipeAudience"]:checked')].map((input) => input.value);
+  const prepMinutes = Number($("recipePrepMinutes").value);
+  const rawIngredients = [...document.querySelectorAll("[data-ingredient-row]")].map((row) => ({
+    name: row.querySelector("[data-ingredient-name]").value.trim(),
+    amount: Number(row.querySelector("[data-ingredient-amount]").value),
+    unit: row.querySelector("[data-ingredient-unit]").value.trim(),
+    category: row.querySelector("[data-ingredient-category]").value.trim() || "Прочее",
+    shelfDays: Number(row.querySelector("[data-ingredient-shelf]").value) || 7,
+    storage: row.querySelector("[data-ingredient-storage]").value || "fresh",
+  }));
+  const ingredients = rawIngredients.filter((ingredient) => ingredient.name);
+  const hasInvalidIngredient = ingredients.some((ingredient) => !Number.isFinite(ingredient.amount) || ingredient.amount <= 0 || !ingredient.unit);
+  const steps = $("recipeSteps").value.split("\n").map((step) => step.trim()).filter(Boolean);
+  if (!title || !kind || !mealTypes.length || !audience.length || !Number.isFinite(prepMinutes) || prepMinutes < 1) {
+    setRecipeFormMessage("Заполни название, тип, слот питания, получателя и время готовки.", "error");
+    return;
+  }
+  if (!ingredients.length || hasInvalidIngredient) {
+    setRecipeFormMessage("Добавь хотя бы один ингредиент: название, количество и единицу измерения.", "error");
+    return;
+  }
+  if (!steps.length) {
+    setRecipeFormMessage("Добавь шаги приготовления — по одному на строку.", "error");
+    return;
+  }
+  const recipe = {
+    id: recipeId(),
+    title,
+    kind,
+    mealTypes,
+    nutrition: { label: "профиль порции" },
+    audience,
+    ingredients: ingredients.map((ingredient) => ({ ...ingredient, shelfDays: Math.max(1, Math.round(ingredient.shelfDays)) })),
+    steps,
+    tags: $("recipeTagsInput").value.split(",").map((tag) => tag.trim()).filter(Boolean),
+    note: $("recipeNote").value.trim(),
+    description: $("recipeDescription").value.trim() || "Яркое блюдо для домашнего меню.",
+    prepMinutes: Math.round(prepMinutes),
+    image: selectedRecipeImageData || $("recipeImageUrl").value.trim(),
+    isCustom: true,
+  };
+  state.customRecipes ||= [];
+  state.customRecipes.unshift(recipe);
+  state.activeTab = "recipes";
+  closeRecipeEditor();
+  saveState({ notify: true });
 }
 
 function renderWeek() {
@@ -581,10 +827,10 @@ function aggregateIngredients() {
   const plan = getWeekPlan();
   const aggregated = new Map();
   Object.entries(plan.entries).forEach(([key, recipeId]) => {
-    if (!recipeId || !recipeMap[recipeId]) return;
+    if (!recipeId || !recipeById(recipeId)) return;
     const person = key.split("|")[2];
     const factor = person === "both" ? 2 : 1;
-    recipeMap[recipeId].ingredients.forEach((ingredient) => {
+    recipeById(recipeId).ingredients.forEach((ingredient) => {
       const aggregateKey = `${normalizeName(ingredient.name)}|${ingredient.unit}`;
       const current = aggregated.get(aggregateKey) || {
         key: aggregateKey,
@@ -598,7 +844,7 @@ function aggregateIngredients() {
       };
       current.amount += ingredient.amount * factor;
       current.shelfDays = Math.min(current.shelfDays, ingredient.shelfDays);
-      current.recipes.add(recipeMap[recipeId].title);
+      current.recipes.add(recipeById(recipeId).title);
       aggregated.set(aggregateKey, current);
     });
   });
@@ -626,36 +872,27 @@ function renderIngredients() {
   }, {});
   const categoryNames = Object.keys(categories).sort(categorySort);
   const fresh = items.filter((item) => item.shelfDays <= 3).length;
-  const total = items.length;
-  $("ingredientStats").innerHTML = `<div class="stat-card"><strong>${total}</strong><span>позиций</span></div><div class="stat-card"><strong>${fresh}</strong><span>свежих позже</span></div>`;
-  $("ingredientList").innerHTML = categoryNames.length ? categoryNames.map((category) => `<section class="category-card"><header class="category-heading"><h3>${escapeHtml(category)}</h3><span>${categories[category].length} поз.</span></header>${categories[category].sort((a, b) => a.name.localeCompare(b.name, "ru")).map((item) => `<div class="ingredient-row"><div><strong>${escapeHtml(item.name)}</strong><small>Для: ${escapeHtml(item.recipes.slice(0, 2).join(", "))}${item.recipes.length > 2 ? "…" : ""}</small></div><div class="ingredient-amount">${formatNumber(item.amount)} ${escapeHtml(item.unit)}</div><div class="storage-hint">${storageHint(item)}<br><span>срок около ${item.shelfDays} дн.</span></div></div>`).join("")}</section>`).join("") : `<div class="empty-state"><div><strong>Пока нет ингредиентов</strong><p>Заполни хотя бы один слот в недельном рационе.</p></div></div>`;
-}
-
-function renderShopping() {
-  const items = aggregateIngredients();
   const completed = items.filter((item) => state.shopping[item.key]?.checked || state.shopping[item.key]?.pantry).length;
-  const percent = items.length ? Math.round((completed / items.length) * 100) : 0;
-  $("shoppingCount").textContent = String(Math.max(items.length - completed, 0));
-  $("shoppingProgress").innerHTML = `<div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div><span>${completed} из ${items.length} отмечено</span>`;
-
-  const groups = items.reduce((result, item) => {
-    (result[item.category] ||= []).push(item);
-    return result;
-  }, {});
-  const categoryNames = Object.keys(groups).sort(categorySort);
-  $("shoppingList").innerHTML = categoryNames.length ? categoryNames.map((category) => `<section class="shopping-group"><h3>${escapeHtml(category)}</h3>${groups[category].sort((a, b) => a.name.localeCompare(b.name, "ru")).map((item) => {
+  const total = items.length;
+  const percent = total ? Math.round((completed / total) * 100) : 0;
+  $("ingredientStats").innerHTML = `<div class="stat-card"><strong>${total}</strong><span>позиций</span></div><div class="stat-card"><strong>${completed}</strong><span>отмечено</span></div><div class="stat-card"><strong>${fresh}</strong><span>свежих позже</span></div>`;
+  $("shoppingProgress").innerHTML = `<div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div><span>${completed} из ${total} отмечено</span>`;
+  $("ingredientList").innerHTML = categoryNames.length ? categoryNames.map((category) => `<section class="category-card"><header class="category-heading"><h3>${escapeHtml(category)}</h3><span>${categories[category].length} поз.</span></header>${categories[category].sort((a, b) => a.name.localeCompare(b.name, "ru")).map((item) => {
     const status = state.shopping[item.key] || {};
-    return `<div class="shopping-item ${status.checked || status.pantry ? "is-checked" : ""}">
-      <button class="check-button ${status.checked ? "is-checked" : ""}" data-shopping-action="checked" data-ingredient-key="${escapeHtml(item.key)}" type="button" aria-label="${status.checked ? "Снять отметку" : "Отметить купленным"}">${status.checked ? "✓" : ""}</button>
-      <div class="shopping-name">${escapeHtml(item.name)}<small>${storageHint(item)}</small></div>
-      <div class="shopping-amount">${formatNumber(item.amount)} ${escapeHtml(item.unit)}</div>
-      <button class="pantry-toggle ${status.pantry ? "is-home" : ""}" data-shopping-action="pantry" data-ingredient-key="${escapeHtml(item.key)}" type="button">${status.pantry ? "Есть дома" : "Уже есть?"}</button>
+    return `<div class="ingredient-row ${status.checked || status.pantry ? "is-checked" : ""}">
+      <div class="ingredient-main"><strong>${escapeHtml(item.name)}</strong><small>Для: ${escapeHtml(item.recipes.slice(0, 2).join(", "))}${item.recipes.length > 2 ? "…" : ""}</small></div>
+      <div class="ingredient-amount">${formatNumber(item.amount)} ${escapeHtml(item.unit)}</div>
+      <div class="storage-hint">${storageHint(item)}<br><span>срок около ${item.shelfDays} дн.</span></div>
+      <div class="ingredient-actions">
+        <button class="check-button ${status.checked ? "is-checked" : ""}" data-shopping-action="checked" data-ingredient-key="${escapeHtml(item.key)}" type="button" aria-label="${status.checked ? "Снять отметку" : "Отметить купленным"}">${status.checked ? "✓" : ""}</button>
+        <button class="pantry-toggle ${status.pantry ? "is-home" : ""}" data-shopping-action="pantry" data-ingredient-key="${escapeHtml(item.key)}" type="button">${status.pantry ? "Есть дома" : "Уже есть?"}</button>
+      </div>
     </div>`;
-  }).join("")}</section>`).join("") : `<div class="empty-state"><div><strong>Список пока пуст</strong><p>После заполнения недельного рациона здесь появятся покупки.</p></div></div>`;
+  }).join("")}</section>`).join("") : `<div class="empty-state"><div><strong>Пока нет ингредиентов</strong><p>Заполни хотя бы один слот в недельном рационе.</p></div></div>`;
 }
 
 function openRecipe(recipeId) {
-  const recipe = recipeMap[recipeId];
+  const recipe = recipeById(recipeId);
   if (!recipe) return;
   $("modalContent").innerHTML = `<p class="eyebrow">${escapeHtml(recipe.kind)}</p><h2 id="modalTitle">${escapeHtml(recipe.title)}</h2><p class="modal-subtitle">${escapeHtml(recipe.note || "Рецепт из общего каталога. Количества указаны на одну порцию для расчёта списка продуктов.")}</p><div class="modal-meta"><span class="chip is-active">${escapeHtml(nutritionLabel(recipe))}</span>${recipeDisplayTags(recipe).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}</div><section class="modal-section"><h3>Ингредиенты</h3><ul class="modal-ingredients">${recipe.ingredients.map((ingredient) => `<li><strong>${escapeHtml(ingredient.name)}</strong><span>${formatNumber(ingredient.amount)} ${escapeHtml(ingredient.unit)}</span></li>`).join("")}</ul></section><section class="modal-section"><h3>Приготовление</h3><ol>${recipe.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol></section><div class="note-box">Ориентир по хранению: скоропортящиеся продукты лучше покупать ближе к готовке, заморозку и бакалею — заранее. Значения пищевой информации здесь справочные и не используются для персональных целей или ограничений.</div>`;
   $("recipeModal").hidden = false;
@@ -739,6 +976,24 @@ function bindEvents() {
   $("copyPreviousWeek").addEventListener("click", copyPreviousWeek);
   $("exportData").addEventListener("click", exportData);
   $("clearShoppingChecks").addEventListener("click", () => { state.shoppingByWeek[state.weekStart] = {}; state.shopping = state.shoppingByWeek[state.weekStart]; saveState({ notify: true }); });
+  $("addRecipeButton").addEventListener("click", openRecipeEditor);
+  $("recipeForm").addEventListener("submit", handleRecipeSubmit);
+  $("addIngredientRow").addEventListener("click", () => addRecipeIngredientRow());
+  $("recipeIngredientRows").addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-ingredient]");
+    if (!removeButton) return;
+    const rows = $("recipeIngredientRows").querySelectorAll("[data-ingredient-row]");
+    if (rows.length <= 1) {
+      setRecipeFormMessage("Оставь хотя бы одну строку ингредиентов.", "error");
+      return;
+    }
+    removeButton.closest("[data-ingredient-row]").remove();
+  });
+  $("recipeImageFile").addEventListener("change", handleRecipeImageFile);
+  $("recipeImageUrl").addEventListener("input", handleRecipeImageUrl);
+  $("closeRecipeEditor").addEventListener("click", closeRecipeEditor);
+  $("cancelRecipeEditor").addEventListener("click", closeRecipeEditor);
+  $("recipeEditorModal").addEventListener("click", (event) => { if (event.target === $("recipeEditorModal")) closeRecipeEditor(); });
   $("authButton").addEventListener("click", openAuthModal);
   $("authForm").addEventListener("submit", sendMagicLink);
   $("closeAuthModal").addEventListener("click", closeAuthModal);
@@ -757,6 +1012,7 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     if (!$("recipeModal").hidden) closeModal();
+    if (!$("recipeEditorModal").hidden) closeRecipeEditor();
     if (!$("authModal").hidden) closeAuthModal();
   });
 }
