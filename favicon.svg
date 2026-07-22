@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Меню на неделю</title>
+  <desc id="desc">Золотая тарелка на тёмно-зелёном фоне</desc>
+  <rect width="64" height="64" rx="16" fill="#123f36"/>
+  <circle cx="32" cy="33" r="20" fill="#e7b95e"/>
+  <path d="M17 34c2.6 10 8.1 15 15 15s12.4-5 15-15c-8.2 3.4-21.8 3.4-30 0Z" fill="#f5f2ea"/>
+  <path d="M20 32c3.8 2.1 7.8 3.2 12 3.2s8.2-1.1 12-3.2" fill="none" stroke="#123f36" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M25 14c-2.2 3.2-2.2 5.7 0 7.6M32 12c-2.2 3.5-2.2 6.2 0 8.2M39 14c-2.2 3.2-2.2 5.7 0 7.6" fill="none" stroke="#f5f2ea" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="47" cy="18" r="4" fill="#d9a0a7"/>
+</svg>
