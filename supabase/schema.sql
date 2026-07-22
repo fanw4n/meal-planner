@@ -47,6 +47,31 @@ create table if not exists public.shopping_status (
 create index if not exists shopping_status_user_week_idx
   on public.shopping_status (user_id, week_start);
 
+
+create table if not exists public.custom_recipes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  recipe_id text not null,
+  title text not null,
+  kind text not null,
+  meal_types text[] not null default '{}',
+  audience text[] not null default '{me,alina}',
+  nutrition jsonb not null default '{"label":"профиль порции"}'::jsonb,
+  ingredients jsonb not null default '[]'::jsonb,
+  steps text[] not null default '{}',
+  tags text[] not null default '{}',
+  note text not null default '',
+  description text not null default '',
+  prep_minutes integer not null default 30 check (prep_minutes > 0),
+  image text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, recipe_id)
+);
+
+create index if not exists custom_recipes_user_idx
+  on public.custom_recipes (user_id);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -74,14 +99,20 @@ create trigger shopping_status_set_updated_at
 before update on public.shopping_status
 for each row execute function public.set_updated_at();
 
+drop trigger if exists custom_recipes_set_updated_at on public.custom_recipes;
+create trigger custom_recipes_set_updated_at
+before update on public.custom_recipes
+for each row execute function public.set_updated_at();
+
 alter table public.week_plans enable row level security;
 alter table public.week_entries enable row level security;
 alter table public.shopping_status enable row level security;
+alter table public.custom_recipes enable row level security;
 
-revoke all on public.week_plans, public.week_entries, public.shopping_status from anon;
-revoke all on public.week_plans, public.week_entries, public.shopping_status from public;
+revoke all on public.week_plans, public.week_entries, public.shopping_status, public.custom_recipes from anon;
+revoke all on public.week_plans, public.week_entries, public.shopping_status, public.custom_recipes from public;
 grant select, insert, update, delete
-  on public.week_plans, public.week_entries, public.shopping_status
+  on public.week_plans, public.week_entries, public.shopping_status, public.custom_recipes
   to authenticated;
 
 drop policy if exists "users manage their week plans" on public.week_plans;
@@ -103,6 +134,15 @@ with check (auth.uid() = user_id);
 drop policy if exists "users manage their shopping status" on public.shopping_status;
 create policy "users manage their shopping status"
 on public.shopping_status
+for all
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+
+drop policy if exists "users manage their custom recipes" on public.custom_recipes;
+create policy "users manage their custom recipes"
+on public.custom_recipes
 for all
 to authenticated
 using (auth.uid() = user_id)
