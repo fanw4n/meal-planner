@@ -1,4 +1,5 @@
 import { RECIPE_FILTERS, SLOT_LABELS, recipeMap, recipes } from "./data.js?v=design7-20260722";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync1-20260722";
 
 const STORAGE_KEY = "meal-planner-state-v1";
 const PERSON_LABELS = { me: "Мася", alina: "Кися", both: "Вместе" };
@@ -16,6 +17,281 @@ const $ = (id) => document.getElementById(id);
 
 const state = loadState();
 let toastTimer;
+let supabase = null;
+let supabaseUser = null;
+let syncTimer = null;
+let syncInFlight = false;
+let lastSessionUserId = null;
+
+
+function setStorageStatus(message) {
+  const element = $("storageStatus");
+  if (element) element.textContent = message;
+}
+
+function setAuthMessage(message, tone = "") {
+  const element = $("authMessage");
+  if (!element) return;
+  element.textContent = message;
+  element.className = `auth-message${tone ? ` is-${tone}` : ""}`;
+}
+
+function updateAuthControls() {
+  const button = $("authButton");
+  if (!button) return;
+  if (supabaseUser) {
+    button.textContent = "Выйти";
+    button.classList.add("is-signed-in");
+    button.setAttribute("aria-label", "Выйти из аккаунта");
+  } else {
+    button.textContent = "Войти";
+    button.classList.remove("is-signed-in");
+    button.setAttribute("aria-label", "Войти для синхронизации");
+  }
+}
+
+function authRedirectUrl() {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+function openAuthModal() {
+  if (supabaseUser) {
+    void signOut();
+    return;
+  }
+  $("authModal").hidden = false;
+  $("authEmail").focus();
+  setAuthMessage(supabase ? "Введи email — отправлю одноразовую ссылку для входа." : "Подключаю синхронизацию…");
+}
+
+function closeAuthModal() {
+  $("authModal").hidden = true;
+  setAuthMessage("");
+}
+
+async function sendMagicLink(event) {
+  event.preventDefault();
+  const email = $("authEmail").value.trim();
+  if (!email) return;
+  if (!supabase) {
+    setAuthMessage("Supabase ещё подключается. Попробуй через секунду.", "error");
+    return;
+  }
+  const submit = $("authSubmit");
+  submit.disabled = true;
+  setAuthMessage("Отправляю ссылку на почту…");
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: authRedirectUrl() },
+  });
+  submit.disabled = false;
+  if (error) {
+    console.error(error);
+    setAuthMessage("Не получилось отправить ссылку. Проверь email и настройки redirect URL.", "error");
+    return;
+  }
+  setAuthMessage("Ссылка отправлена. Открой её в этом браузере — после этого план будет синхронизироваться.", "success");
+}
+
+async function signOut() {
+  if (!supabase) return;
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error(error);
+    showToast("Не получилось выйти из аккаунта");
+    return;
+  }
+  supabaseUser = null;
+  lastSessionUserId = null;
+  updateAuthControls();
+  setStorageStatus("Сохранено в браузере");
+  renderAll();
+  showToast("Выход выполнен");
+}
+
+function hasLocalWeekData(weekKey) {
+  const entries = Object.values(getWeekPlan(weekKey).entries || {}).filter(Boolean);
+  const shopping = Object.values(getWeekShopping(weekKey)).some((item) => item?.checked || item?.pantry);
+  return entries.length > 0 || shopping;
+}
+
+function cloudEntryRows(weekKey) {
+  const entries = getWeekPlan(weekKey).entries || {};
+  return Object.entries(entries)
+    .filter(([, recipeId]) => recipeId && recipeMap[recipeId])
+    .map(([key, recipeId]) => {
+      const [day, slot, person] = key.split("|");
+      return {
+        user_id: supabaseUser.id,
+        week_start: weekKey,
+        day,
+        slot,
+        person,
+        recipe_id: recipeId,
+      };
+    });
+}
+
+function cloudShoppingRows(weekKey) {
+  return Object.entries(getWeekShopping(weekKey))
+    .filter(([, status]) => status?.checked || status?.pantry)
+    .map(([ingredientKey, status]) => ({
+      user_id: supabaseUser.id,
+      week_start: weekKey,
+      ingredient_key: ingredientKey,
+      checked: Boolean(status.checked),
+      pantry: Boolean(status.pantry),
+    }));
+}
+
+async function pullCloudWeek(weekKey) {
+  if (!supabaseUser || !supabase) return;
+  setStorageStatus("Загрузка из Supabase…");
+  try {
+    const [planResult, entriesResult, shoppingResult] = await Promise.all([
+      supabase.from("week_plans").select("mode").eq("user_id", supabaseUser.id).eq("week_start", weekKey).maybeSingle(),
+      supabase.from("week_entries").select("day,slot,person,recipe_id").eq("user_id", supabaseUser.id).eq("week_start", weekKey),
+      supabase.from("shopping_status").select("ingredient_key,checked,pantry").eq("user_id", supabaseUser.id).eq("week_start", weekKey),
+    ]);
+    if (planResult.error) throw planResult.error;
+    if (entriesResult.error) throw entriesResult.error;
+    if (shoppingResult.error) throw shoppingResult.error;
+
+    const cloudHasData = Boolean(planResult.data || entriesResult.data?.length || shoppingResult.data?.length);
+    if (!cloudHasData && hasLocalWeekData(weekKey)) {
+      await pushCloudWeek(weekKey);
+      setStorageStatus("Синхронизировано");
+      return;
+    }
+
+    const plan = getWeekPlan(weekKey);
+    plan.entries = {};
+    (entriesResult.data || []).forEach((row) => {
+      plan.entries[entryKey(row.day, row.slot, row.person)] = row.recipe_id;
+    });
+    if (planResult.data?.mode) plan.mode = planResult.data.mode;
+    if (weekKey === state.weekStart && plan.mode) state.recipientMode = plan.mode;
+
+    const shopping = {};
+    (shoppingResult.data || []).forEach((row) => {
+      shopping[row.ingredient_key] = { checked: row.checked, pantry: row.pantry };
+    });
+    state.shoppingByWeek[weekKey] = shopping;
+    if (weekKey === state.weekStart) state.shopping = shopping;
+    persistLocal();
+    renderAll();
+    setStorageStatus("Синхронизировано");
+  } catch (error) {
+    console.error(error);
+    setStorageStatus("Локальный режим");
+    showToast("Не удалось загрузить данные Supabase");
+  }
+}
+
+async function pushCloudWeek(weekKey = state.weekStart) {
+  if (!supabaseUser || !supabase) return;
+  if (syncInFlight) return;
+  syncInFlight = true;
+  try {
+    const plan = getWeekPlan(weekKey);
+    const mode = plan.mode || (weekKey === state.weekStart ? state.recipientMode : "both");
+    plan.mode = mode;
+    const planResult = await supabase.from("week_plans").upsert({
+      user_id: supabaseUser.id,
+      week_start: weekKey,
+      mode,
+    }, { onConflict: "user_id,week_start" });
+    if (planResult.error) throw planResult.error;
+
+    const entriesDelete = await supabase.from("week_entries").delete().eq("user_id", supabaseUser.id).eq("week_start", weekKey);
+    if (entriesDelete.error) throw entriesDelete.error;
+    const entries = cloudEntryRows(weekKey);
+    if (entries.length) {
+      const entriesInsert = await supabase.from("week_entries").insert(entries);
+      if (entriesInsert.error) throw entriesInsert.error;
+    }
+
+    const shoppingDelete = await supabase.from("shopping_status").delete().eq("user_id", supabaseUser.id).eq("week_start", weekKey);
+    if (shoppingDelete.error) throw shoppingDelete.error;
+    const shopping = cloudShoppingRows(weekKey);
+    if (shopping.length) {
+      const shoppingInsert = await supabase.from("shopping_status").insert(shopping);
+      if (shoppingInsert.error) throw shoppingInsert.error;
+    }
+    setStorageStatus("Синхронизировано");
+  } catch (error) {
+    console.error(error);
+    setStorageStatus("Локально сохранено");
+    showToast("Локально сохранено; синхронизация не удалась");
+  } finally {
+    syncInFlight = false;
+  }
+}
+
+function scheduleCloudSync() {
+  if (!supabaseUser) return;
+  clearTimeout(syncTimer);
+  syncTimer = window.setTimeout(() => void pushCloudWeek(state.weekStart), 500);
+}
+
+function changeWeek(value) {
+  const nextWeek = mondayISO(value);
+  if (nextWeek === state.weekStart) return;
+  state.weekStart = nextWeek;
+  const plan = getWeekPlan(nextWeek);
+  state.recipientMode = plan.mode || state.recipientMode;
+  activateShoppingWeek(nextWeek);
+  persistLocal();
+  renderAll();
+  if (supabaseUser) {
+    void pullCloudWeek(nextWeek);
+  } else {
+    setStorageStatus("Сохранено в браузере");
+  }
+}
+
+async function applySupabaseSession(session) {
+  const nextUser = session?.user || null;
+  const changed = nextUser?.id !== supabaseUser?.id;
+  supabaseUser = nextUser;
+  updateAuthControls();
+  if (!supabaseUser) {
+    lastSessionUserId = null;
+    setStorageStatus("Сохранено в браузере");
+    renderAll();
+    return;
+  }
+  if (!changed && lastSessionUserId === supabaseUser.id) return;
+  lastSessionUserId = supabaseUser.id;
+  await pullCloudWeek(state.weekStart);
+}
+
+async function initSupabase() {
+  updateAuthControls();
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    setStorageStatus("Сохранено в браузере");
+    return;
+  }
+  try {
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    });
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    await applySupabaseSession(data.session);
+    supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => void applySupabaseSession(session), 0);
+    });
+  } catch (error) {
+    console.error(error);
+    setStorageStatus("Локальный режим");
+    setAuthMessage("Не удалось подключить Supabase. Приложение продолжает работать локально.", "error");
+  }
+}
 
 function defaultState() {
   return {
@@ -27,6 +303,7 @@ function defaultState() {
     recipientMode: "both",
     weeks: {},
     shopping: {},
+    shoppingByWeek: {},
   };
 }
 
@@ -40,14 +317,21 @@ function loadState() {
   }
   if (next.recipientMode === "me" || next.recipientMode === "alina") next.recipientMode = "separate";
   if (next.recipeTag === "только для меня") next.recipeTag = "Мася";
+  next.weeks ||= {};
+  next.shoppingByWeek ||= {};
+  if (next.shopping && Object.keys(next.shopping).length && !next.shoppingByWeek[next.weekStart]) {
+    next.shoppingByWeek[next.weekStart] = next.shopping;
+  }
+  next.shopping = next.shoppingByWeek[next.weekStart] || {};
   return next;
 }
 
-function saveState({ notify = false } = {}) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  $("storageStatus").textContent = "Сохранено в браузере";
+function saveState({ notify = false, sync = true } = {}) {
+  persistLocal();
+  setStorageStatus(supabaseUser ? "Изменения синхронизируются…" : "Сохранено в браузере");
   renderAll();
-  if (notify) showToast("Изменения сохранены");
+  if (sync && supabaseUser) scheduleCloudSync();
+  if (notify) showToast(supabaseUser ? "Изменения сохранены и синхронизируются" : "Изменения сохранены");
 }
 
 function isoDate(date) {
@@ -104,9 +388,26 @@ function formatNumber(value) {
 }
 
 function getWeekPlan(weekKey = state.weekStart) {
-  if (!state.weeks[weekKey]) state.weeks[weekKey] = { entries: {} };
+  if (!state.weeks[weekKey]) state.weeks[weekKey] = { entries: {}, mode: state.recipientMode || "both" };
   if (!state.weeks[weekKey].entries) state.weeks[weekKey].entries = {};
+  if (!state.weeks[weekKey].mode) state.weeks[weekKey].mode = state.recipientMode || "both";
   return state.weeks[weekKey];
+}
+
+function getWeekShopping(weekKey = state.weekStart) {
+  state.shoppingByWeek ||= {};
+  state.shoppingByWeek[weekKey] ||= {};
+  return state.shoppingByWeek[weekKey];
+}
+
+function activateShoppingWeek(weekKey = state.weekStart) {
+  state.shopping = getWeekShopping(weekKey);
+}
+
+function persistLocal() {
+  state.shoppingByWeek ||= {};
+  state.shoppingByWeek[state.weekStart] = state.shopping || {};
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function entryKey(day, slot, person) {
@@ -349,7 +650,7 @@ function closeModal() {
 
 function setTab(tab) {
   state.activeTab = tab;
-  saveState();
+  saveState({ sync: false });
 }
 
 function showToast(message) {
@@ -378,6 +679,7 @@ function copyPreviousWeek() {
     return;
   }
   state.weeks[state.weekStart] = JSON.parse(JSON.stringify(state.weeks[previousKey]));
+  activateShoppingWeek(state.weekStart);
   saveState({ notify: true });
 }
 
@@ -406,14 +708,22 @@ function bindEvents() {
   });
 
   $("recipeSearch").addEventListener("input", (event) => { state.recipeSearch = event.target.value; renderRecipes(); });
-  $("recipeFilter").addEventListener("change", (event) => { state.recipeFilter = event.target.value; saveState(); });
-  $("weekDate").addEventListener("change", (event) => { state.weekStart = mondayISO(event.target.value); saveState(); });
-  $("recipientMode").addEventListener("change", (event) => { state.recipientMode = event.target.value; saveState(); });
-  $("previousWeek").addEventListener("click", () => { state.weekStart = isoDate(addDays(state.weekStart, -7)); saveState(); });
-  $("nextWeek").addEventListener("click", () => { state.weekStart = isoDate(addDays(state.weekStart, 7)); saveState(); });
+  $("recipeFilter").addEventListener("change", (event) => { state.recipeFilter = event.target.value; saveState({ sync: false }); });
+  $("weekDate").addEventListener("change", (event) => { changeWeek(event.target.value); });
+  $("recipientMode").addEventListener("change", (event) => {
+    state.recipientMode = event.target.value;
+    getWeekPlan().mode = state.recipientMode;
+    saveState();
+  });
+  $("previousWeek").addEventListener("click", () => { changeWeek(addDays(state.weekStart, -7)); });
+  $("nextWeek").addEventListener("click", () => { changeWeek(addDays(state.weekStart, 7)); });
   $("copyPreviousWeek").addEventListener("click", copyPreviousWeek);
   $("exportData").addEventListener("click", exportData);
-  $("clearShoppingChecks").addEventListener("click", () => { state.shopping = {}; saveState({ notify: true }); });
+  $("clearShoppingChecks").addEventListener("click", () => { state.shoppingByWeek[state.weekStart] = {}; state.shopping = state.shoppingByWeek[state.weekStart]; saveState({ notify: true }); });
+  $("authButton").addEventListener("click", openAuthModal);
+  $("authForm").addEventListener("submit", sendMagicLink);
+  $("closeAuthModal").addEventListener("click", closeAuthModal);
+  $("authModal").addEventListener("click", (event) => { if (event.target === $("authModal")) closeAuthModal(); });
   $("closeModal").addEventListener("click", closeModal);
   $("recipeModal").addEventListener("click", (event) => { if (event.target === $("recipeModal")) closeModal(); });
   $("weekBoard").addEventListener("change", (event) => {
@@ -425,8 +735,13 @@ function bindEvents() {
     else delete plan.entries[key];
     saveState({ notify: true });
   });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("recipeModal").hidden) closeModal(); });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (!$("recipeModal").hidden) closeModal();
+    if (!$("authModal").hidden) closeAuthModal();
+  });
 }
 
 renderAll();
 bindEvents();
+void initSupabase();
