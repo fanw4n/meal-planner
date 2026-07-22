@@ -1,5 +1,5 @@
 import { RECIPE_FILTERS, SLOT_LABELS, recipeMap as builtinRecipeMap, recipes as builtinRecipes } from "./data.js?v=design7-20260722";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync4-20260722";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase-config.js?v=sync5-20260722";
 
 const STORAGE_KEY = "meal-planner-state-v1";
 const PERSON_LABELS = { me: "Мася", alina: "Кися", both: "Вместе" };
@@ -891,10 +891,40 @@ function renderIngredients() {
   }).join("")}</section>`).join("") : `<div class="empty-state"><div><strong>Пока нет ингредиентов</strong><p>Заполни хотя бы один слот в недельном рационе.</p></div></div>`;
 }
 
+async function deleteCloudRecipe(recipeId) {
+  if (!supabaseUser || !supabase) return;
+  try {
+    const entriesResult = await supabase.from("week_entries").delete().eq("user_id", supabaseUser.id).eq("recipe_id", recipeId);
+    if (entriesResult.error) throw entriesResult.error;
+    const recipeResult = await supabase.from("custom_recipes").delete().eq("user_id", supabaseUser.id).eq("recipe_id", recipeId);
+    if (recipeResult.error) throw recipeResult.error;
+  } catch (error) {
+    console.warn("Облачная копия рецепта не удалена.", error);
+    showToast("Рецепт удалён здесь, но не в Supabase");
+  }
+}
+
+function deleteCustomRecipe(recipeId) {
+  const recipe = (state.customRecipes || []).find((item) => item.id === recipeId);
+  if (!recipe) return;
+  const confirmed = typeof window.confirm === "function" && window.confirm(`Удалить рецепт «${recipe.title}»? Связанные слоты недельного плана тоже будут очищены.`);
+  if (!confirmed) return;
+  state.customRecipes = (state.customRecipes || []).filter((item) => item.id !== recipeId);
+  Object.values(state.weeks || {}).forEach((plan) => {
+    Object.keys(plan.entries || {}).forEach((key) => {
+      if (plan.entries[key] === recipeId) delete plan.entries[key];
+    });
+  });
+  closeModal();
+  saveState({ notify: true });
+  void deleteCloudRecipe(recipeId);
+}
+
 function openRecipe(recipeId) {
   const recipe = recipeById(recipeId);
   if (!recipe) return;
-  $("modalContent").innerHTML = `<p class="eyebrow">${escapeHtml(recipe.kind)}</p><h2 id="modalTitle">${escapeHtml(recipe.title)}</h2><p class="modal-subtitle">${escapeHtml(recipe.note || "Рецепт из общего каталога. Количества указаны на одну порцию для расчёта списка продуктов.")}</p><div class="modal-meta"><span class="chip is-active">${escapeHtml(nutritionLabel(recipe))}</span>${recipeDisplayTags(recipe).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}</div><section class="modal-section"><h3>Ингредиенты</h3><ul class="modal-ingredients">${recipe.ingredients.map((ingredient) => `<li><strong>${escapeHtml(ingredient.name)}</strong><span>${formatNumber(ingredient.amount)} ${escapeHtml(ingredient.unit)}</span></li>`).join("")}</ul></section><section class="modal-section"><h3>Приготовление</h3><ol>${recipe.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol></section><div class="note-box">Ориентир по хранению: скоропортящиеся продукты лучше покупать ближе к готовке, заморозку и бакалею — заранее. Значения пищевой информации здесь справочные и не используются для персональных целей или ограничений.</div>`;
+  const deleteAction = recipe.isCustom ? `<div class="recipe-detail-actions"><span>Это пользовательский рецепт</span><button class="button button-danger" data-delete-recipe="${escapeHtml(recipe.id)}" type="button">Удалить рецепт</button></div>` : "";
+  $("modalContent").innerHTML = `<p class="eyebrow">${escapeHtml(recipe.kind)}</p><h2 id="modalTitle">${escapeHtml(recipe.title)}</h2><p class="modal-subtitle">${escapeHtml(recipe.note || "Рецепт из общего каталога. Количества указаны на одну порцию для расчёта списка продуктов.")}</p><div class="modal-meta"><span class="chip is-active">${escapeHtml(nutritionLabel(recipe))}</span>${recipeDisplayTags(recipe).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}</div><section class="modal-section"><h3>Ингредиенты</h3><ul class="modal-ingredients">${recipe.ingredients.map((ingredient) => `<li><strong>${escapeHtml(ingredient.name)}</strong><span>${formatNumber(ingredient.amount)} ${escapeHtml(ingredient.unit)}</span></li>`).join("")}</ul></section><section class="modal-section"><h3>Приготовление</h3><ol>${recipe.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol></section><div class="note-box">Ориентир по хранению: скоропортящиеся продукты лучше покупать ближе к готовке, заморозку и бакалею — заранее. Значения пищевой информации здесь справочные и не используются для персональных целей или ограничений.</div>${deleteAction}`;
   $("recipeModal").hidden = false;
   document.body.style.overflow = "hidden";
 }
@@ -949,6 +979,12 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const tab = event.target.closest("[data-tab]");
     if (tab) setTab(tab.dataset.tab);
+
+    const deleteButton = event.target.closest("[data-delete-recipe]");
+    if (deleteButton) {
+      deleteCustomRecipe(deleteButton.dataset.deleteRecipe);
+      return;
+    }
 
     const recipeCard = event.target.closest("[data-recipe-id]");
     if (recipeCard) openRecipe(recipeCard.dataset.recipeId);
