@@ -294,3 +294,14 @@ main { margin-top: 24px; }
   .modal-actions { flex-direction: column-reverse; }
   .modal-actions .button { width: 100%; }
 }
+
+
+.recipe-toolbar { align-items: flex-end; }
+.button-danger { border-color: #e2b8b2; color: #9a514b; background: #f9e8e5; }
+.button-danger:hover { border-color: #c98a83; background: #f2d7d4; }
+.recipe-detail-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+.recipe-detail-actions span { color: var(--muted); font-size: 11px; }
+@media (max-width: 520px) {
+  .recipe-detail-actions { align-items: stretch; flex-direction: column; }
+  .recipe-detail-actions .button { width: 100%; }
+}
