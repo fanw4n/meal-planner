@@ -1,4 +1,4 @@
-import { RECIPE_FILTERS, SLOT_LABELS, recipeMap, recipes } from "./data.js?v=design6-20260722";
+import { RECIPE_FILTERS, SLOT_LABELS, recipeMap, recipes } from "./data.js?v=design7-20260722";
 
 const STORAGE_KEY = "meal-planner-state-v1";
 const PERSON_LABELS = { me: "Мася", alina: "Кися", both: "Вместе" };
