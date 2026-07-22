@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap");
+
 :root {
   --bg: #153d34;
   --surface: #fffaf0;
@@ -14,7 +16,7 @@
   --radius-lg: 24px;
   --radius-md: 16px;
   --radius-sm: 10px;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Nunito", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--ink);
   background: var(--bg);
   font-synthesis: none;
@@ -39,6 +41,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 4px 24px; }
 .brand { display: flex; align-items: center; gap: 14px; }
 .brand-mark { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: var(--accent); color: var(--ink); font-size: 24px; box-shadow: 0 9px 24px rgba(45, 106, 85, 0.22); }
+.brand h1, .panel-heading h2, .recipe-card h3, .modal h2, .day-card-header strong, .summary-card strong {
+  font-family: "Caveat", "Segoe Print", cursive;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
 .brand h1 { color: var(--surface); margin: 2px 0 0; font-size: clamp(24px, 3vw, 36px); letter-spacing: -0.04em; line-height: 1; }
 .eyebrow { margin: 0; color: var(--accent); text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; font-weight: 800; }
 .top-actions, .toolbar, .shopping-actions { display: flex; align-items: center; gap: 10px; }
