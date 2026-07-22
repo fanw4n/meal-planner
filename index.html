@@ -9,7 +9,7 @@
       content="Личный планировщик рецептов, меню на неделю и списка покупок"
     />
     <title>Меню на неделю</title>
-    <link rel="stylesheet" href="styles.css?v=design7-20260722" />
+    <link rel="stylesheet" href="styles.css?v=sync1-20260722" />
   </head>
   <body>
     <div class="app-shell">
@@ -23,7 +23,10 @@
         </div>
         <div class="top-actions">
           <span class="sync-badge" id="storageStatus">Сохранено в браузере</span>
-          <button class="button button-ghost" id="exportData" type="button">Экспорт данных</button>
+          <div class="top-actions-buttons">
+            <button class="button button-ghost" id="authButton" type="button" aria-label="Войти для синхронизации">Войти</button>
+            <button class="button button-ghost" id="exportData" type="button">Экспорт данных</button>
+          </div>
         </div>
       </header>
 
@@ -125,7 +128,24 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="authModal" hidden>
+      <div class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <button class="modal-close" id="closeAuthModal" type="button" aria-label="Закрыть">×</button>
+        <p class="eyebrow">Синхронизация</p>
+        <h2 id="authTitle">Войти в планировщик</h2>
+        <p class="modal-subtitle">Введи email — отправлю одноразовую ссылку. Пароль не нужен.</p>
+        <form id="authForm" class="auth-form">
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+          </label>
+          <button class="button button-primary" id="authSubmit" type="submit">Отправить ссылку</button>
+        </form>
+        <p class="auth-message" id="authMessage">После входа рацион и покупки будут доступны на других устройствах.</p>
+      </div>
+    </div>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=design7-20260722"></script>
+    <script type="module" src="app.js?v=sync1-20260722"></script>
   </body>
 </html>
