@@ -1,8 +1,14 @@
 import { RECIPE_FILTERS, SLOT_LABELS, recipeMap, recipes } from "./data.js";
 
 const STORAGE_KEY = "meal-planner-state-v1";
-const PERSON_LABELS = { me: "Я", alina: "Алина (Киси)", both: "Оба" };
-const PERSON_SHORT_LABELS = { me: "Я", alina: "Алина", both: "Оба" };
+const PERSON_LABELS = { me: "Мася", alina: "Кися", both: "Вместе" };
+const PERSON_SHORT_LABELS = { me: "Мася", alina: "Кися", both: "Вместе" };
+const TIME_FILTERS = [
+  { value: "quick", label: "На скорую руку" },
+  { value: "steady", label: "В спокойном темпе" },
+  { value: "slow", label: "Долгая магия" },
+];
+const KIND_CLASSES = { "Основное": "main", "Закуска": "snack", "Выпечка": "baking", "Суп": "soup", "Салат": "salad", "Перекус": "snack", "Каша": "porridge", "Завтрак": "breakfast", "Запеканка": "bake", "Лепёшка": "flatbread" };
 const SLOT_ORDER = ["breakfast", "lunch", "dinner", "lateSnack"];
 const CATEGORY_ORDER = ["Мясо", "Рыба", "Морепродукты", "Яйца", "Молочные", "Овощи", "Зелень", "Фрукты", "Заморозка", "Бакалея", "Соусы", "Специи", "Орехи", "Семена"];
 
@@ -25,12 +31,16 @@ function defaultState() {
 }
 
 function loadState() {
+  let next = defaultState();
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    return { ...defaultState(), ...(parsed || {}) };
+    next = { ...next, ...(parsed || {}) };
   } catch {
-    return defaultState();
+    next = defaultState();
   }
+  if (next.recipientMode === "me" || next.recipientMode === "alina") next.recipientMode = "separate";
+  if (next.recipeTag === "только для меня") next.recipeTag = "Мася";
+  return next;
 }
 
 function saveState({ notify = false } = {}) {
@@ -104,8 +114,7 @@ function entryKey(day, slot, person) {
 }
 
 function getPeopleForMode() {
-  if (state.recipientMode === "both") return ["both"];
-  return state.recipientMode === "me" ? ["me", "alina"] : ["alina", "me"];
+  return state.recipientMode === "both" ? ["both"] : ["me", "alina"];
 }
 
 function getAvailableRecipes(slot, person) {
@@ -134,20 +143,54 @@ function renderTabs() {
   });
 }
 
+function recipeAudienceTags(recipe) {
+  const tags = [];
+  if (recipe.audience.includes("me")) tags.push("Мася");
+  if (recipe.audience.includes("alina")) tags.push("Кися");
+  return tags;
+}
+
+function cookingBand(recipe) {
+  const minutes = Number(recipe.prepMinutes) || 30;
+  if (minutes <= 20) return "quick";
+  if (minutes <= 40) return "steady";
+  return "slow";
+}
+
+function recipeFilterTags(recipe) {
+  return [...new Set([...recipe.tags.filter((tag) => !tag.includes("для меня")), ...recipeAudienceTags(recipe), cookingBand(recipe)])];
+}
+
+function recipeDisplayTags(recipe) {
+  const timeLabel = TIME_FILTERS.find((item) => item.value === cookingBand(recipe))?.label;
+  return [...new Set([...recipe.tags.filter((tag) => !tag.includes("для меня")), ...recipeAudienceTags(recipe), timeLabel])].filter(Boolean);
+}
+
+function timeLabel(recipe) {
+  return `~${Number(recipe.prepMinutes) || 30} мин`;
+}
+
+function kindClass(kind) {
+  return KIND_CLASSES[kind] || "default";
+}
 function renderRecipeFilters() {
   const filter = $("recipeFilter");
   filter.innerHTML = RECIPE_FILTERS.map((item) => `<option value="${item.value}">${item.label}</option>`).join("");
   filter.value = state.recipeFilter;
 
-  const tags = ["all", ...new Set(recipes.flatMap((recipe) => recipe.tags))];
-  $("recipeTags").innerHTML = tags.map((tag) => {
-    const label = tag === "all" ? "Все теги" : tag;
-    return `<button class="chip chip-button ${state.recipeTag === tag ? "is-active" : ""}" data-recipe-tag="${escapeHtml(tag)}" type="button">${escapeHtml(label)}</button>`;
-  }).join("");
+  const baseTags = [...new Set(recipes.flatMap((recipe) => recipe.tags.filter((tag) => !tag.includes("для меня"))))];
+  const tags = [
+    { value: "all", label: "Все теги" },
+    { value: "Мася", label: "Мася" },
+    { value: "Кися", label: "Кися" },
+    ...TIME_FILTERS,
+    ...baseTags.map((tag) => ({ value: tag, label: tag })),
+  ];
+  $("recipeTags").innerHTML = tags.map((item) => `<button class="chip chip-button ${state.recipeTag === item.value ? "is-active" : ""}" data-recipe-tag="${escapeHtml(item.value)}" type="button">${escapeHtml(item.label)}</button>`).join("");
 }
 
 function nutritionLabel(recipe) {
-  return recipe.nutrition?.label || "справочный профиль";
+  return recipe.nutrition?.label || "профиль порции";
 }
 
 function renderRecipes() {
@@ -155,19 +198,20 @@ function renderRecipes() {
   $("recipeSearch").value = state.recipeSearch;
   const query = state.recipeSearch.trim().toLowerCase();
   const filtered = recipes.filter((recipe) => {
-    const matchesQuery = !query || `${recipe.title} ${recipe.kind} ${recipe.tags.join(" ")}`.toLowerCase().includes(query);
+    const matchesQuery = !query || `${recipe.title} ${recipe.kind} ${recipe.tags.join(" ")} ${recipe.description || ""}`.toLowerCase().includes(query);
     const matchesFilter = state.recipeFilter === "all" || recipe.mealTypes.includes(state.recipeFilter) || (state.recipeFilter === "soup" && recipe.kind === "Суп") || (state.recipeFilter === "salad" && recipe.kind === "Салат");
-    const matchesTag = state.recipeTag === "all" || recipe.tags.includes(state.recipeTag);
+    const matchesTag = state.recipeTag === "all" || recipeFilterTags(recipe).includes(state.recipeTag);
     return matchesQuery && matchesFilter && matchesTag;
   });
   $("recipeCount").textContent = String(recipes.length);
 
   $("recipeGrid").innerHTML = filtered.length ? filtered.map((recipe) => `
     <article class="recipe-card" data-recipe-id="${recipe.id}" tabindex="0" role="button" aria-label="Открыть рецепт: ${escapeHtml(recipe.title)}">
-      <div class="recipe-card-top"><span class="recipe-kind">${escapeHtml(recipe.kind)}</span><span class="chip">${recipe.mealTypes.map((slot) => SLOT_LABELS[slot]).join(" · ")}</span></div>
+      <div class="recipe-card-image"><img src="${escapeHtml(recipe.image || "")}" alt="${escapeHtml(recipe.title)}" loading="lazy" decoding="async" /></div>
+      <div class="recipe-card-top"><span class="recipe-kind kind-${kindClass(recipe.kind)}">${escapeHtml(recipe.kind)}</span><div class="recipe-card-top-meta"><span class="chip">${recipe.mealTypes.map((slot) => SLOT_LABELS[slot]).join(" · ")}</span><span class="chip time-chip">${timeLabel(recipe)}</span></div></div>
       <h3>${escapeHtml(recipe.title)}</h3>
-      <p>${escapeHtml(recipe.note || "Подходит для планирования и заготовок на несколько дней.")}</p>
-      <div class="recipe-audience">${recipe.audience.map((person) => `<span class="audience-pill">${PERSON_SHORT_LABELS[person]}</span>`).join("")}</div>
+      <p>${escapeHtml(recipe.description || "Яркое блюдо для удобного домашнего меню.")}</p>
+      <div class="recipe-audience">${recipeAudienceTags(recipe).map((person) => `<span class="audience-pill">${escapeHtml(person)}</span>`).join("")}</div>
       <div class="recipe-card-footer"><span class="recipe-macro">${escapeHtml(nutritionLabel(recipe))}</span><span class="button button-secondary">Подробнее</span></div>
     </article>
   `).join("") : `<div class="empty-state"><div><strong>Ничего не найдено</strong><p>Попробуй изменить поиск или фильтр.</p></div></div>`;
@@ -288,7 +332,7 @@ function renderShopping() {
 function openRecipe(recipeId) {
   const recipe = recipeMap[recipeId];
   if (!recipe) return;
-  $("modalContent").innerHTML = `<p class="eyebrow">${escapeHtml(recipe.kind)}</p><h2 id="modalTitle">${escapeHtml(recipe.title)}</h2><p class="modal-subtitle">${escapeHtml(recipe.note || "Рецепт из общего каталога. Количества указаны на одну порцию для расчёта списка продуктов.")}</p><div class="modal-meta"><span class="chip is-active">${escapeHtml(nutritionLabel(recipe))}</span>${recipe.tags.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}</div><section class="modal-section"><h3>Ингредиенты</h3><ul class="modal-ingredients">${recipe.ingredients.map((ingredient) => `<li><strong>${escapeHtml(ingredient.name)}</strong><span>${formatNumber(ingredient.amount)} ${escapeHtml(ingredient.unit)}</span></li>`).join("")}</ul></section><section class="modal-section"><h3>Приготовление</h3><ol>${recipe.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol></section><div class="note-box">Ориентир по хранению: скоропортящиеся продукты лучше покупать ближе к готовке, заморозку и бакалею — заранее. Значения пищевой информации здесь справочные и не используются для персональных целей или ограничений.</div>`;
+  $("modalContent").innerHTML = `<p class="eyebrow">${escapeHtml(recipe.kind)}</p><h2 id="modalTitle">${escapeHtml(recipe.title)}</h2><p class="modal-subtitle">${escapeHtml(recipe.note || "Рецепт из общего каталога. Количества указаны на одну порцию для расчёта списка продуктов.")}</p><div class="modal-meta"><span class="chip is-active">${escapeHtml(nutritionLabel(recipe))}</span>${recipeDisplayTags(recipe).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}</div><section class="modal-section"><h3>Ингредиенты</h3><ul class="modal-ingredients">${recipe.ingredients.map((ingredient) => `<li><strong>${escapeHtml(ingredient.name)}</strong><span>${formatNumber(ingredient.amount)} ${escapeHtml(ingredient.unit)}</span></li>`).join("")}</ul></section><section class="modal-section"><h3>Приготовление</h3><ol>${recipe.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol></section><div class="note-box">Ориентир по хранению: скоропортящиеся продукты лучше покупать ближе к готовке, заморозку и бакалею — заранее. Значения пищевой информации здесь справочные и не используются для персональных целей или ограничений.</div>`;
   $("recipeModal").hidden = false;
   document.body.style.overflow = "hidden";
 }
