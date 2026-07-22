@@ -232,7 +232,8 @@ function renderWeek() {
     [filled, "заполненных слотов"], [usedDays, "дней с планом"], [usedRecipes, "разных блюд"],
   ].map(([value, label]) => `<div class="summary-card"><strong>${value}</strong><span>${label}</span></div>`).join("");
 
-  $("weekBoard").innerHTML = days.flatMap((date) => people.map((person) => renderDayCard(date, person, today, plan))).join("");
+  const cards = state.recipientMode === "both" ? days.map((date) => renderDayCard(date, "both", today, plan)) : people.flatMap((person) => days.map((date) => renderDayCard(date, person, today, plan)));
+  $("weekBoard").innerHTML = cards.join("");
 }
 
 function renderDayCard(date, person, today, plan) {
