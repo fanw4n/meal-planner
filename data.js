@@ -12,10 +12,97 @@ const i = (name, amount, unit, category, shelfDays, storage = "fresh") => ({
 
 // Пищевая информация хранится как нейтральная пометка и не используется
 // для подсчёта суточных целей или ограничений.
-const n = () => ({ label: "справочная информация" });
+const n = () => ({ label: "профиль порции" });
 
+const IMAGE_BY_KIND = {
+  "Основное": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=900&q=82",
+  "Закуска": "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=900&q=82",
+  "Выпечка": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=82",
+  "Суп": "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=82",
+  "Салат": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=82",
+  "Перекус": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=900&q=82",
+  "Каша": "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=900&q=82",
+  "Завтрак": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=900&q=82",
+  "Запеканка": "https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=900&q=82",
+  "Лепёшка": "https://images.unsplash.com/photo-1548365328-8b849e6f90b4?auto=format&fit=crop&w=900&q=82"
+};
+const IMAGE_BY_ID = {
+  "pollock-potato-gratin": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=900&q=82",
+  "salmon-spinach-cherry": "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=82",
+  "moroccan-lentil-pumpkin": "https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?auto=format&fit=crop&w=900&q=82",
+  "italian-wedding-soup": "https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?auto=format&fit=crop&w=900&q=82",
+  "turkey-meatballs-pasta": "https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&w=900&q=82",
+  "shrimp-avocado-salad": "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=900&q=82",
+  "egg-white-omelet": "https://images.unsplash.com/photo-1513442542250-854d436a73f2?auto=format&fit=crop&w=900&q=82",
+  "beef-rice-beans": "https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=900&q=82"
+};
+const DESCRIPTION_BY_ID = {
+  "lasagna-turkey": "Тёплые итальянские слои, томатный соус и румяная сырная крышечка — уютный ужин из духовки.",
+  "chicken-snacks": "Хрустящая золотая корочка и сочная серединка — маленький праздник, который удобно взять с собой.",
+  "baked-pies": "Румяные пирожки с домашней начинкой — ароматная выпечка для неспешного выходного.",
+  "pollock-potato-gratin": "Нежный минтай под лёгкой сливочной шапкой — мягкая запеканка с запахом тёплой кухни.",
+  "salmon-spinach-cherry": "Яркий лосось, зелёный шпинат и сладкие черри — тарелка цвета закатного сада.",
+  "borscht-chicken": "Густой куриный борщ с настоящей зажаркой — насыщенный, домашний и ещё вкуснее на следующий день.",
+  "moroccan-lentil-pumpkin": "Пряная чечевица с тыквой — густое солнечное рагу с тёплыми восточными специями.",
+  "italian-wedding-soup": "Лёгкий суп с фрикадельками, шпинатом и пастой — душистая итальянская миска для прохладного вечера.",
+  "chicken-spinach-soup": "Прозрачный куриный бульон со шпинатом — спокойная зелёная классика, когда хочется тепла.",
+  "chopped-chicken-salad": "Хрустящие овощи, курица и фета — свежий садовый салат с ярким солёным акцентом.",
+  "warm-tuna-potato-salad": "Тёплый картофель, тунец и фасоль — средиземноморская тарелка с солнечным лимонным настроением.",
+  "asian-shrimp-noodle-salad": "Креветки, манго и рисовая лапша — сочный азиатский салат с лаймовой искрой.",
+  "cottage-cheese-berries-nuts": "Холодный ягодный крем с ореховым хрустом — быстрый перекус из трёх красивых слоёв.",
+  "greek-yogurt-granola": "Прохладный йогурт, яблоко и хрустящая гранола — утро с чистым фруктовым вкусом.",
+  "cottage-cheese-mousse": "Воздушный творожный мусс и ягодный соус — десертная пауза без долгой готовки.",
+  "millet-pear-porridge": "Золотистая пшённая каша с грушей — мягкая сладость и миндальный хруст в одной миске.",
+  "avocado-egg-toast": "Зелёный авокадо, яйцо пашот и хрустящий тост — бодрый завтрак с кофейным настроением.",
+  "turkey-meatballs-pasta": "Домашняя паста с нежными фрикадельками — густой томатный соус и ощущение итальянского воскресенья.",
+  "shrimp-avocado-salad": "Розовые креветки, сливочный авокадо и хрустящая зелень — свежий салат за несколько минут.",
+  "protein-vatrushka": "Мягкая ватрушка с ягодной серединкой — румяная выпечка, которую удобно разогреть утром.",
+  "cottage-cheese-casserole": "Нежная запеканка с ягодами — тёплый ванильный ломтик к чаю и спокойному началу дня.",
+  "lentil-chicken-bowl": "Чечевица, курица и сладкая морковь — сытный боул с ароматом запечённых овощей.",
+  "beef-rice-beans": "Медленно томлёная говядина, рис и зелёная фасоль — глубокий вкус большой домашней тарелки.",
+  "egg-white-omelet": "Нежный омлет со шпинатом и томатами — лёгкий зелёный старт без лишней суеты.",
+  "oatmeal-banana": "Тёплая овсянка с бананом и корицей — мягкое утро, которое собирается за десять минут.",
+  "bulgur-turkey-tomato": "Рассыпчатый булгур, индейка и сочные черри — яркий боул для рабочего дня.",
+  "fish-broccoli-yogurt-sauce": "Белая рыба, брокколи и прохладный йогуртовый соус — чистый вкус моря и зелени.",
+  "tuna-corn-cucumber-salad": "Тунец, кукуруза и огурец — хрустящий салат с лёгкой сладостью и свежим соусом.",
+  "flatbreads-chicken": "Горячая лепёшка с курицей и овощами — домашний гриль-ролл с мягким сметанным соусом.",
+  "minced-meat-salad": "Пряный фарш на хрустящих листьях — салат с тёплым центром и сочными овощами."
+};
+const PREP_MINUTES_BY_ID = {
+  "lasagna-turkey": 55,
+  "chicken-snacks": 25,
+  "baked-pies": 50,
+  "pollock-potato-gratin": 55,
+  "salmon-spinach-cherry": 25,
+  "borscht-chicken": 90,
+  "moroccan-lentil-pumpkin": 40,
+  "italian-wedding-soup": 45,
+  "chicken-spinach-soup": 50,
+  "chopped-chicken-salad": 20,
+  "warm-tuna-potato-salad": 30,
+  "asian-shrimp-noodle-salad": 25,
+  "cottage-cheese-berries-nuts": 5,
+  "greek-yogurt-granola": 5,
+  "cottage-cheese-mousse": 15,
+  "millet-pear-porridge": 25,
+  "avocado-egg-toast": 15,
+  "turkey-meatballs-pasta": 35,
+  "shrimp-avocado-salad": 15,
+  "protein-vatrushka": 35,
+  "cottage-cheese-casserole": 40,
+  "lentil-chicken-bowl": 45,
+  "beef-rice-beans": 75,
+  "egg-white-omelet": 15,
+  "oatmeal-banana": 10,
+  "bulgur-turkey-tomato": 30,
+  "fish-broccoli-yogurt-sauce": 25,
+  "tuna-corn-cucumber-salad": 10,
+  "flatbreads-chicken": 25,
+  "minced-meat-salad": 20
+};
 const r = ({ id, title, kind, mealTypes, nutrition, audience = ["me", "alina"],
-  ingredients, steps, tags = [], note = "" }) => ({
+  ingredients, steps, tags = [], note = "", description = DESCRIPTION_BY_ID[id] || "Яркое блюдо для удобного домашнего меню.",
+  prepMinutes = PREP_MINUTES_BY_ID[id] || 30, image = IMAGE_BY_ID[id] || IMAGE_BY_KIND[kind] }) => ({
   id,
   title,
   kind,
@@ -26,6 +113,9 @@ const r = ({ id, title, kind, mealTypes, nutrition, audience = ["me", "alina"],
   steps,
   tags,
   note,
+  description,
+  prepMinutes,
+  image,
 });
 
 export const SLOT_LABELS = {
