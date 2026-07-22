@@ -305,3 +305,14 @@ main { margin-top: 24px; }
   .recipe-detail-actions { align-items: stretch; flex-direction: column; }
   .recipe-detail-actions .button { width: 100%; }
 }
+
+
+.auth-methods { display: flex; gap: 8px; margin-top: 18px; }
+.auth-method { flex: 1; min-height: 38px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: var(--surface-muted); font-size: 12px; font-weight: 800; cursor: pointer; }
+.auth-method.is-active { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-soft); }
+.auth-password-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.auth-link-button { border: 0; padding: 0; color: var(--accent-dark); background: transparent; font-size: 11px; font-weight: 800; cursor: pointer; }
+.auth-link-button:hover { color: var(--orange); text-decoration: underline; }
+@media (max-width: 520px) {
+  .auth-password-actions { align-items: flex-start; flex-direction: column; gap: 8px; }
+}
