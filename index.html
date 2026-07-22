@@ -10,7 +10,7 @@
     />
     <title>Меню на неделю</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=sync5-20260722" />
+    <link rel="stylesheet" href="styles.css?v=sync6-20260722" />
   </head>
   <body>
     <div class="app-shell">
@@ -222,19 +222,31 @@
         <button class="modal-close" id="closeAuthModal" type="button" aria-label="Закрыть">×</button>
         <p class="eyebrow">Синхронизация</p>
         <h2 id="authTitle">Войти в планировщик</h2>
-        <p class="modal-subtitle">Введи email — отправлю одноразовую ссылку. Пароль не нужен.</p>
+        <p class="modal-subtitle" id="authSubtitle">Введи email — отправлю одноразовую ссылку. Пароль не нужен.</p>
+        <div class="auth-methods" id="authMethods" role="tablist" aria-label="Способ входа">
+          <button class="auth-method is-active" id="authMagicMode" type="button" role="tab" aria-selected="true">По ссылке</button>
+          <button class="auth-method" id="authPasswordMode" type="button" role="tab" aria-selected="false">По паролю</button>
+        </div>
         <form id="authForm" class="auth-form">
           <label class="field">
             <span class="field-label">Email</span>
             <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
           </label>
+          <label class="field" id="authPasswordField" hidden>
+            <span class="field-label">Пароль</span>
+            <input id="authPassword" type="password" autocomplete="current-password" placeholder="Не короче 6 символов" />
+          </label>
           <button class="button button-primary" id="authSubmit" type="submit">Отправить ссылку</button>
         </form>
+        <div class="auth-password-actions" id="authPasswordActions" hidden>
+          <button class="auth-link-button" id="authForgotPassword" type="button">Забыли пароль?</button>
+          <button class="auth-link-button" id="authSignUp" type="button">Создать аккаунт</button>
+        </div>
         <p class="auth-message" id="authMessage">После входа рацион и покупки будут доступны на других устройствах.</p>
       </div>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=sync5-20260722"></script>
+    <script type="module" src="app.js?v=sync6-20260722"></script>
   </body>
 </html>
